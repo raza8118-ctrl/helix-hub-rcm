@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Helix Hub — RCM Portal</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;transition:background 0.4s}
+input,select,textarea,button{font-family:inherit}
+/* ── Inputs ── */
+.inp{border:1.5px solid #e2e8f0;border-radius:9px;padding:9px 13px;font-size:13px;width:100%;outline:none;color:#1e293b;background:white;transition:border-color 0.2s,box-shadow 0.2s}
+.inp:focus{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,0.12)}
+/* ── Cards ── */
+.card{background:rgba(255,255,255,0.92);backdrop-filter:blur(12px);border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.09);padding:22px;border:1px solid rgba(255,255,255,0.8)}
+.card-dark{background:linear-gradient(135deg,#0a1628,#1e3a5f);border-radius:16px;padding:24px;border:1px solid rgba(255,255,255,0.1)}
+/* ── Buttons ── */
+.btn{border:none;border-radius:10px;padding:9px 20px;cursor:pointer;font-weight:700;font-size:13px;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+.btn-primary{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;box-shadow:0 2px 8px rgba(79,70,229,0.3)}
+.btn-amber{background:linear-gradient(135deg,#f59e0b,#d97706);color:#0a1628;box-shadow:0 2px 8px rgba(245,158,11,0.3)}
+.btn-green{background:linear-gradient(135deg,#10b981,#059669);color:white}
+.btn-danger{background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.2)}
+.btn-ghost{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);border:1px solid rgba(255,255,255,0.15)}
+.btn-light{background:#f1f5f9;color:#475569}
+/* ── Badges ── */
+.badge{border-radius:999px;padding:3px 12px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-block}
+/* ── Tables ── */
+table{border-collapse:collapse;width:100%}
+th,td{padding:10px 13px;text-align:left;border-bottom:1px solid #f1f5f9;font-size:13px}
+th{font-size:10px;font-weight:700;letter-spacing:0.9px;color:#94a3b8;background:#f8fafc;text-transform:uppercase}
+tr:hover td{background:#fafbff}
+/* ── Nav ── */
+.screen{display:none}.screen.active{display:block}
+.tab-btn{background:transparent;color:rgba(255,255,255,0.55);border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s}
+.tab-btn.active{background:rgba(255,255,255,0.15);color:white;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2)}
+.tab-btn.active-amber{background:#f59e0b;color:#0a1628}
+.sub-tab{background:#f1f5f9;color:#64748b;border:none;border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s}
+.sub-tab.active{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;box-shadow:0 2px 8px rgba(79,70,229,0.3)}
+/* ── Topbar ── */
+.topbar{position:sticky;top:0;z-index:100;backdrop-filter:blur(20px)}
+/* ── Modals ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:white;border-radius:20px;padding:28px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.35)}
+/* ── Stat cards ── */
+.kpi{background:white;border-radius:14px;padding:16px 18px;flex:1;min-width:110px;box-shadow:0 2px 12px rgba(0,0,0,0.07);position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+/* ── Alerts ── */
+.deficit-alert{background:linear-gradient(135deg,#fff1f2,#fef2f2);border:2px solid #fca5a5;border-radius:14px;padding:18px 22px;margin-bottom:18px}
+.bypass-note{background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:#3730a3}
+/* ── Hourly cell ── */
+.h-cell{background:white;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;text-align:center;transition:all 0.2s}
+.h-cell:hover{border-color:#4f46e5;box-shadow:0 2px 8px rgba(79,70,229,0.15)}
+.h-cell.night{border-color:#c4b5fd;background:#faf5ff}
+/* ── Search ── */
+.search-box{position:relative}
+.search-box input{padding-left:36px}
+.search-box::before{content:'🔍';position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;z-index:1;pointer-events:none}
+/* ── Theme wallpaper ── */
+.theme-swatch{width:44px;height:44px;border-radius:10px;cursor:pointer;border:3px solid transparent;transition:all 0.2s}
+.theme-swatch.active{border-color:white;box-shadow:0 0 0 3px #4f46e5}
+/* ── Animations ── */
+.fade{animation:fi 0.25s ease}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.slide-in{animation:si 0.3s ease}
+@keyframes si{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+/* ── Responsive ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.err{background:#fee2e2;color:#ef4444;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px}
+.ok{background:#d1fae5;border:1px solid #6ee7b7;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:center}
+@media(max-width:768px){.g2,.g3{grid-template-columns:1fr}.row{gap:8px}}
+</style>
+</head>
+<body id="app-body">
+
+<!-- ═══════════════════════════════════════════════ LOGIN ══ -->
+<div id="screen-login" class="screen active">
+  <div id="login-bg" style="min-height:100vh;background:linear-gradient(160deg,#0a1628 0%,#1e3a5f 55%,#0f2d4a 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+    <div style="text-align:center;margin-bottom:36px">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:76px;height:76px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:22px;margin-bottom:18px;box-shadow:0 12px 40px rgba(79,70,229,0.5)">
+        <svg width="46" height="46" viewBox="0 0 46 46" fill="none"><circle cx="23" cy="23" r="10" fill="white" opacity="0.95"/><path d="M18 23 Q23 15 28 23 Q23 31 18 23Z" fill="#4f46e5"/><circle cx="23" cy="23" r="18" stroke="white" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.3"/></svg>
+      </div>
+      <div style="font-size:42px;font-weight:900;color:white;letter-spacing:-2px;line-height:1">Helix Hub</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:8px;letter-spacing:3px;text-transform:uppercase">RCM Team Performance Portal</div>
+    </div>
+    <div style="background:white;border-radius:22px;padding:38px 34px;width:100%;max-width:430px;box-shadow:0 32px 80px rgba(0,0,0,0.45)">
+      <div id="login-panel">
+        <div style="margin-bottom:26px"><div style="font-size:20px;font-weight:800;color:#0a1628">Welcome Back 👋</div><div style="font-size:12px;color:#94a3b8;margin-top:4px">Sign in to continue to your workspace</div></div>
+        <div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">EMPLOYEE ID</div><input class="inp" id="login-id" type="text" placeholder="Enter your Employee ID" style="font-size:14px;padding:12px 14px"/></div>
+        <div style="margin-bottom:18px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">PASSWORD</div><input class="inp" id="login-pass" type="password" placeholder="Enter your password" style="font-size:14px;padding:12px 14px"/></div>
+        <div id="login-err" class="err" style="display:none"></div>
+        <button class="btn btn-primary" onclick="doLogin()" style="width:100%;padding:14px;font-size:15px;border-radius:11px;justify-content:center;margin-bottom:14px">Sign In →</button>
+        <button onclick="showForgot()" style="background:none;border:none;color:#4f46e5;font-size:13px;cursor:pointer;width:100%;text-align:center;font-weight:600">Forgot Password?</button>
+      </div>
+      <div id="forgot-panel" style="display:none">
+        <div style="margin-bottom:20px"><div style="font-size:18px;font-weight:800;color:#0a1628">🔐 Reset Password</div><div style="font-size:12px;color:#94a3b8;margin-top:4px">Request will be sent to your Admin</div></div>
+        <div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">EMPLOYEE ID *</div><input class="inp" id="fg-id" placeholder="e.g. EMP001"/></div>
+        <div style="margin-bottom:16px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">REASON (optional)</div><input class="inp" id="fg-reason" placeholder="e.g. Forgot password"/></div>
+        <div id="fg-err" class="err" style="display:none"></div>
+        <button class="btn btn-primary" onclick="sendForgot()" style="width:100%;padding:12px;border-radius:10px;justify-content:center;margin-bottom:10px">Send Reset Request</button>
+        <button onclick="showLogin()" style="background:none;border:none;color:#94a3b8;font-size:13px;cursor:pointer;width:100%;text-align:center">← Back to Login</button>
+      </div>
+      <div id="forgot-done" style="display:none;text-align:center;padding:20px 0">
+        <div style="font-size:44px;margin-bottom:12px">✅</div>
+        <div style="font-size:16px;font-weight:800;color:#0a1628;margin-bottom:8px">Request Sent!</div>
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:18px">Admin will reset your password shortly.</div>
+        <button class="btn" onclick="showLogin()" style="background:#0a1628;color:white;justify-content:center;padding:10px 24px">← Back to Login</button>
+      </div>
+    </div>
+    <div style="color:rgba(255,255,255,0.2);font-size:12px;margin-top:28px;text-align:center;line-height:2">
+      Helix Hub · 3Gen Consulting<br/><span style="opacity:0.7;font-size:11px">Created by Faizan Shah</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ APP ══ -->
+<div id="screen-app" class="screen">
+  <div id="topbar-el" class="topbar" style="background:rgba(10,22,40,0.92);border-bottom:1px solid rgba(255,255,255,0.08)">
+    <div style="max-width:1320px;margin:0 auto;padding:0 20px">
+      <div style="display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.07);flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(79,70,229,0.4)">
+            <svg width="22" height="22" viewBox="0 0 46 46" fill="none"><circle cx="23" cy="23" r="10" fill="white" opacity="0.95"/><path d="M18 23 Q23 15 28 23 Q23 31 18 23Z" fill="#4f46e5"/></svg>
+          </div>
+          <div><div style="font-weight:900;font-size:16px;color:white;line-height:1;letter-spacing:-0.5px">Helix Hub</div><div style="font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:2px">RCM PORTAL</div></div>
+        </div>
+        <div style="flex:1"></div>
+        <div id="deficit-header-alert" style="display:none;background:linear-gradient(135deg,rgba(239,68,68,0.2),rgba(239,68,68,0.1));border:1px solid rgba(239,68,68,0.35);border-radius:9px;padding:6px 14px;cursor:pointer" onclick="selTab('prodreport')">
+          <span style="color:#fca5a5;font-size:12px;font-weight:700">⚠️ Deficit Alert — View Now</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.08);border-radius:11px;padding:7px 14px;cursor:pointer;border:1px solid rgba(255,255,255,0.1)" onclick="openProfile()">
+          <div id="user-avatar" style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:white;flex-shrink:0;overflow:hidden"></div>
+          <div style="line-height:1.2"><div id="user-name-display" style="color:white;font-weight:700;font-size:13px"></div><div id="user-role-display" style="color:rgba(255,255,255,0.45);font-size:10px;font-weight:600;margin-top:1px"></div></div>
+        </div>
+        <button class="btn btn-danger" onclick="doLogout()" style="padding:7px 14px;font-size:12px">Sign Out</button>
+      </div>
+      <div id="tab-bar" style="display:flex;gap:2px;padding:6px 0;overflow-x:auto"></div>
+    </div>
+  </div>
+  <div id="page-content" style="max-width:1320px;margin:0 auto;padding:22px 18px"></div>
+</div>
+
+<!-- Modals -->
+<div id="edit-modal" class="modal-bg"><div class="modal" style="max-width:580px">
+  <div style="font-size:18px;font-weight:800;color:#0a1628;margin-bottom:20px">✏️ Edit User</div>
+  <input type="hidden" id="edit-orig-id"/>
+  <div class="g3" style="margin-bottom:14px">
+    <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Full Name</div><input class="inp" id="edit-name"/></div>
+    <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Password</div><input class="inp" id="edit-pass" placeholder="Leave blank to keep"/></div>
+    <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Process</div><select class="inp" id="edit-process"><option value="All">All Processes</option></select></div>
+    <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Role</div>
+      <select class="inp" id="edit-role"><option value="employee">👤 Employee</option><option value="supervisor">🔷 Supervisor</option><option value="admin">👑 Admin</option></select></div>
+    <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Overall Target</div><input class="inp" id="edit-target" type="number" placeholder="50"/></div>
+    <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Supervisor Access To</div><select class="inp" id="edit-supaccess" multiple style="height:80px"><option value="All">All Processes</option></select></div>
+  </div>
+  <div style="margin-bottom:16px"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Access Permissions</div>
+    <div id="edit-access-pills" style="display:flex;flex-wrap:wrap;gap:8px"></div></div>
+  <div id="edit-msg" style="font-size:13px;margin-bottom:10px;display:none"></div>
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-primary" onclick="saveEditUser()" style="flex:1;padding:11px;justify-content:center">Save Changes</button>
+    <button class="btn btn-light" onclick="closeModal('edit-modal')" style="padding:11px 20px">Cancel</button>
+  </div>
+</div></div>
+
+<div id="emp-modal" class="modal-bg"><div class="modal" style="max-width:800px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div style="font-size:18px;font-weight:800;color:#0a1628" id="emp-modal-title">Employee Details</div>
+    <button onclick="closeModal('emp-modal')" style="background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;line-height:1">×</button>
+  </div>
+  <div id="emp-modal-content"></div>
+</div></div>
+
+<div id="profile-modal" class="modal-bg"><div class="modal" style="max-width:500px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div style="font-size:18px;font-weight:800;color:#0a1628">My Profile & Theme</div>
+    <button onclick="closeModal('profile-modal')" style="background:none;border:none;font-size:24px;cursor:pointer;color:#94a3b8;line-height:1">×</button>
+  </div>
+  <div id="profile-content"></div>
+</div></div>
+
+<script>
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  STEP 1 OF 1: PASTE YOUR SUPABASE KEYS BELOW               ║
+// ║  Line 192: Your Project URL (https://xxxx.supabase.co)     ║
+// ║  Line 193: Your anon/public key (eyJhbG...)                ║
+// ╚══════════════════════════════════════════════════════════════╝
+const SUPABASE_URL = "YOUR_SUPABASE_URL_HERE";
+const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ══ CONSTANTS ═════════════════════════════════════════
+const MONTHS  = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const ACCESSES= ["Prod Report","View Own Progress","View Team Progress","Generate Email","Send Feedback","Manage Users","View Reports","Hourly Tracker","Call Tracker"];
+const SHIFT_H = 8;
+const HOURLY_SLOTS = ["5:30 PM","6:30 PM","7:30 PM","8:30 PM","9:30 PM","10:30 PM","11:30 PM","12:30 AM","1:30 AM","2:30 AM"];
+
+const THEMES = [
+  {id:"default",  label:"Midnight",     bg:"linear-gradient(135deg,#0f172a 0%,#1e293b 100%)",       topbar:"rgba(10,22,40,0.95)"},
+  {id:"ocean",    label:"Ocean",        bg:"linear-gradient(135deg,#0c4a6e 0%,#0369a1 50%,#0284c7 100%)",topbar:"rgba(8,47,73,0.95)"},
+  {id:"forest",   label:"Forest",       bg:"linear-gradient(135deg,#14532d 0%,#166534 50%,#15803d 100%)",topbar:"rgba(15,47,29,0.95)"},
+  {id:"purple",   label:"Galaxy",       bg:"linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#4c1d95 100%)",topbar:"rgba(20,18,60,0.95)"},
+  {id:"rose",     label:"Rose",         bg:"linear-gradient(135deg,#4a0019 0%,#881337 50%,#be123c 100%)",topbar:"rgba(50,0,20,0.95)"},
+  {id:"slate",    label:"Professional", bg:"linear-gradient(135deg,#1e293b 0%,#334155 50%,#475569 100%)",topbar:"rgba(20,28,42,0.95)"},
+  {id:"warm",     label:"Warm",         bg:"linear-gradient(135deg,#7c2d12 0%,#9a3412 50%,#c2410c 100%)",topbar:"rgba(60,25,10,0.95)"},
+  {id:"teal",     label:"Teal",         bg:"linear-gradient(135deg,#042f2e 0%,#134e4a 50%,#0f766e 100%)",topbar:"rgba(4,30,28,0.95)"},
+];
+
+const DEFAULT_TASKS = {
+  MCO:[{name:"Email",target:40},{name:"AR MCO Calling",target:40},{name:"Review",target:80},{name:"Appeal",target:35},{name:"Denial",target:40},{name:"Rej(P)",target:80},{name:"Rej(W)",target:80}],
+  MCD:[{name:"Email",target:45},{name:"AR MCO Calling",target:45},{name:"AR Medicaid Calling/Portal",target:80},{name:"Review",target:80},{name:"Appeal",target:35},{name:"Denial",target:80},{name:"Rej(P)",target:80},{name:"Rej(W)",target:80}],
+  MCR:[{name:"5th Days NOA",target:480},{name:"NOA Status",target:50},{name:"Medicare RTP",target:50},{name:"NOE/NOA Handkey",target:40},{name:"Claim Handkey",target:20},{name:"Hospice Sequential Report",target:90},{name:"Email",target:50},{name:"AR Calling",target:50},{name:"AR Non Calling/Portal",target:90},{name:"Review",target:220},{name:"Voice Mail",target:60},{name:"Appeal",target:28},{name:"Denial",target:35},{name:"Rej(P)",target:60},{name:"Rej(W)",target:120}]
+};
+
+// ══ STORAGE ═══════════════════════════════════════════
+const S={
+  get:async k=>{try{const{data}=await sb.from("rcm_store").select("val").eq("k",k).single();return data?JSON.parse(data.val):null;}catch{return null;}},
+  set:async(k,v)=>{try{await sb.from("rcm_store").upsert({k,val:JSON.stringify(v),updated_at:new Date().toISOString()},{onConflict:"k"});return true;}catch{return false;}}
+};
+
+// ══ HELPERS ════════════════════════════════════════════
+let currentUser=null,currentTheme=THEMES[0];
+const today=()=>new Date().toISOString().split("T")[0];
+const yesterday=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];};
+const fmtD=d=>new Date(d+"T00:00:00").toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+const fmtSh=d=>new Date(d+"T00:00:00").toLocaleDateString("en-GB",{day:"2-digit",month:"short"});
+const addDays=(d,n)=>{const dt=new Date(d+"T00:00:00");dt.setDate(dt.getDate()+n);return dt.toISOString().split("T")[0];};
+const getMon=d=>{const dt=new Date(d+"T00:00:00"),day=dt.getDay();dt.setDate(dt.getDate()-(day===0?6:day-1));return dt.toISOString().split("T")[0];};
+const isWknd=d=>{const w=new Date(d+"T00:00:00").getDay();return w===0||w===6;};
+const wDays=s=>{const o=[];let c=s;for(let i=0;i<7;i++){if(!isWknd(c))o.push(c);c=addDays(c,1);}return o;};
+const mDays=(y,m)=>{const o=[];const last=new Date(y,m,0).getDate();for(let d=1;d<=last;d++){const s=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;if(!isWknd(s))o.push(s);}return o;};
+const pCol=v=>{const n=parseFloat(v);return isNaN(n)?"#94a3b8":n>=100?"#10b981":n>=75?"#f97316":"#ef4444";};
+const avg=arr=>arr.length?+(arr.reduce((s,v)=>s+parseFloat(v),0)/arr.length).toFixed(1):null;
+const esc=s=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const badge=(label,color)=>`<span class="badge" style="background:${color}22;color:${color}">${esc(label)}</span>`;
+const kpi=(label,value,color,sub="",icon="")=>`<div class="kpi" style="border-top:3px solid ${color}"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">${icon} ${label}</div><div style="font-size:22px;font-weight:900;color:${color}">${esc(String(value??'—'))}</div>${sub?`<div style="font-size:11px;color:#94a3b8;margin-top:2px">${esc(sub)}</div>`:""}</div>`;
+const setPage=html=>{const el=document.getElementById("page-content");el.innerHTML=html;el.classList.remove("fade");void el.offsetWidth;el.classList.add("fade");};
+const closeModal=id=>document.getElementById(id).classList.remove("open");
+const openModal=id=>document.getElementById(id).classList.add("open");
+const H2=(t,icon="")=>`<div style="font-size:15px;font-weight:800;color:#0a1628;margin-bottom:14px;display:flex;align-items:center;gap:8px">${icon?`<span style="font-size:18px">${icon}</span>`:""}<span>${t}</span></div>`;
+
+async function getTaskConfig(){return(await S.get("rcm:task_config"))||JSON.parse(JSON.stringify(DEFAULT_TASKS));}
+async function getProcesses(){return(await S.get("rcm:processes"))||["PMB MCO","MCD (Medicaid)","MCR (Medicare)"];}
+
+function calcProd(tasks,counts,overallTarget,downtimeHours){
+  let total=0;for(const t of tasks){const c=parseFloat(counts[t.name])||0;total+=c*(50/t.target);}
+  total=+total.toFixed(2);
+  const eff=Math.max(0,(SHIFT_H-(parseFloat(downtimeHours)||0))/SHIFT_H);
+  const adjTarget=+(overallTarget*eff).toFixed(2);
+  const prodPct=adjTarget>0?+((total/adjTarget)*100).toFixed(1):0;
+  return{total,adjTarget,prodPct,deficit:+(adjTarget-total).toFixed(2),deficitPct:+(100-prodPct).toFixed(1)};
+}
+
+async function callAI(prompt){
+  const s=await S.get("rcm:settings")||{};if(!s.anthropicKey)throw new Error("NO_KEY");
+  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":s.anthropicKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-opus-4-5",max_tokens:1500,messages:[{role:"user",content:prompt}]})});
+  const d=await r.json();if(d.error)throw new Error(d.error.message);return d.content?.map(b=>b.text||"").join("")||"";
+}
+
+function applyTheme(theme){
+  currentTheme=theme;
+  document.getElementById("app-body").style.background=theme.bg;
+  const tb=document.getElementById("topbar-el");if(tb)tb.style.background=theme.topbar;
+}
+
+// ══ LOGIN ══════════════════════════════════════════════
+function showLogin(){document.getElementById("login-panel").style.display="block";document.getElementById("forgot-panel").style.display="none";document.getElementById("forgot-done").style.display="none";}
+function showForgot(){document.getElementById("login-panel").style.display="none";document.getElementById("forgot-panel").style.display="block";}
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&document.getElementById("screen-login").classList.contains("active"))doLogin();});
+
+async function doLogin(){
+  const empId=document.getElementById("login-id").value.trim();
+  const pass=document.getElementById("login-pass").value.trim();
+  const errEl=document.getElementById("login-err");errEl.style.display="none";
+  if(!empId||!pass){errEl.textContent="Enter your ID and password.";errEl.style.display="block";return;}
+  let users=await S.get("rcm:users");
+  if(!users?.length){users=[{empId:"ADMIN",name:"Team Lead Admin",password:"Admin@123",process:"All",role:"admin",access:ACCESSES,active:true,overallTarget:50,supervisorAccess:["All"]}];await S.set("rcm:users",users);}
+  const u=users.find(x=>x.empId.toLowerCase()===empId.toLowerCase()&&x.password===pass&&x.active!==false);
+  if(!u){errEl.textContent="Invalid Employee ID or password.";errEl.style.display="block";return;}
+  currentUser=u;
+  // Load theme preference
+  const prefs=await S.get(`rcm:prefs:${u.empId}`)||{};
+  const savedTheme=THEMES.find(t=>t.id===prefs.themeId)||THEMES[0];
+  applyTheme(savedTheme);
+  startApp();
+}
+async function sendForgot(){
+  const id=document.getElementById("fg-id").value.trim(),reason=document.getElementById("fg-reason").value.trim();
+  if(!id){document.getElementById("fg-err").textContent="Enter your Employee ID.";document.getElementById("fg-err").style.display="block";return;}
+  document.getElementById("fg-err").style.display="none";
+  const reqs=await S.get("rcm:pwreset")||[];reqs.push({empId:id.toUpperCase(),reason,requestedAt:new Date().toISOString(),status:"pending"});
+  await S.set("rcm:pwreset",reqs);
+  document.getElementById("forgot-panel").style.display="none";document.getElementById("forgot-done").style.display="block";
+}
+
+// ══ APP START ══════════════════════════════════════════
+async function startApp(){
+  document.getElementById("screen-login").classList.remove("active");
+  document.getElementById("screen-app").classList.add("active");
+  const rc=currentUser.role==="admin"?"#ef4444":currentUser.role==="supervisor"?"#2563eb":"#4f46e5";
+  const av=document.getElementById("user-avatar");
+  if(currentUser.picture){av.innerHTML=`<img src="${esc(currentUser.picture)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`;}
+  else{av.style.background=`linear-gradient(135deg,${rc},${rc}88)`;av.textContent=currentUser.name.charAt(0).toUpperCase();}
+  document.getElementById("user-name-display").textContent=currentUser.name;
+  document.getElementById("user-role-display").textContent=`${currentUser.empId} · ${currentUser.role==="admin"?"👑 Admin":currentUser.role==="supervisor"?"🔷 Supervisor":"👤 Employee"}`;
+  if(currentUser.role==="employee"){await checkDeficitAlert();loadEmpApp();}
+  else loadAdminApp();
+}
+async function checkDeficitAlert(){
+  const pr=await S.get(`rcm:prod:${currentUser.empId}:${today()}`);
+  const bp=await S.get(`rcm:bypass:${currentUser.empId}:${today()}`);
+  if(pr&&!bp&&parseFloat(pr.prodPct)<100)document.getElementById("deficit-header-alert").style.display="block";
+}
+function doLogout(){
+  currentUser=null;
+  document.getElementById("screen-app").classList.remove("active");
+  document.getElementById("screen-login").classList.add("active");
+  document.getElementById("login-id").value="";document.getElementById("login-pass").value="";
+  document.getElementById("deficit-header-alert").style.display="none";showLogin();
+}
+function setTabs(tabs,onSel){
+  document.getElementById("tab-bar").innerHTML=tabs.map(t=>`<button class="tab-btn" data-id="${t.id}" onclick="selTab('${t.id}')">${esc(t.label)}</button>`).join("");
+  window._onSelTab=onSel;
+}
+function selTab(id){document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b.dataset.id===id));window._onSelTab(id);}
+
+// ══ CSV with task breakdown ════════════════════════════
+function dlCSV(headers,rows,name){const csv=[headers,...rows.map(r=>r.map(c=>`"${String(c??"").replace(/"/g,'""')}"`))].map(r=>r.join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=name;a.click();}
+
+async function exportWithTasks(dates,empFilter,filename){
+  const taskCfg=await getTaskConfig();
+  const allRows=[];
+  // Header rows per process
+  for(const date of dates){
+    const dayData=await S.get(`rcm:day:${date}`)||{};
+    const prodData=await S.get(`rcm:prod:${empFilter||"_ALL"}:${date}`)||null;
+    // Try each employee
+    const users=await S.get("rcm:users")||[];
+    const emps=empFilter?users.filter(u=>u.empId===empFilter):users.filter(u=>u.role==="employee");
+    for(const emp of emps){
+      const pr=await S.get(`rcm:prod:${emp.empId}:${date}`);
+      const dd=dayData[emp.empId];
+      if(!pr&&!dd)continue;
+      const proc=pr?.process||dd?.process||"MCO";
+      const procKey=proc.includes("MCD")||proc.includes("Medicaid")?"MCD":proc.includes("MCR")||proc.includes("Medicare")?"MCR":"MCO";
+      const tasks=taskCfg[procKey]||[];
+      // Base row
+      const base=[date,emp.empId,emp.name,proc,pr?.total?.toFixed(1)||dd?.total||"",pr?.adjTarget?.toFixed(1)||"",pr?.prodPct?.toFixed(1)||dd?.prodPct||"",pr?.deficit?.toFixed(1)||"",pr?.downtimeHours||dd?.downtime||"",pr?.remark||dd?.reason||""];
+      // Task columns
+      const taskVals=tasks.map(t=>pr?.tasks?.[t.name]||"");
+      allRows.push([...base,...taskVals]);
+    }
+  }
+  // Build task header columns (union of all tasks)
+  const taskCfgAll=[...taskCfg.MCO,...taskCfg.MCD,...taskCfg.MCR];
+  const allTaskNames=[...new Set(taskCfgAll.map(t=>t.name))];
+  const headers=["Date","EmpID","Name","Process","Total","Adj.Target","Prod%","Deficit","Downtime","Remark",...allTaskNames];
+  dlCSV(headers,allRows,filename);
+}
+
+// ══ BAR CHART ════════════════════════════════════════
+function barChart(data,h=160){
+  if(!data?.length)return`<div style="color:#94a3b8;text-align:center;padding:24px;font-size:13px">No data available</div>`;
+  const max=130;
+  let s=`<div style="display:flex;align-items:flex-end;gap:6px;height:${h}px;padding:8px 0 0;border-bottom:2px solid rgba(0,0,0,0.08);position:relative;margin-bottom:8px">`;
+  const lp=(100/max)*100;
+  s+=`<div style="position:absolute;bottom:${lp}%;left:0;right:0;border-top:2px dashed rgba(239,68,68,0.6);z-index:1"><span style="position:absolute;right:0;top:-13px;font-size:9px;color:#ef4444;font-weight:700;background:white;padding:0 4px;border-radius:3px">100%</span></div>`;
+  data.forEach(d=>{const p=parseFloat(d.prod)||0,ph=Math.min((p/max)*100,100),c=pCol(p);s+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end;z-index:2"><span style="font-size:9px;font-weight:800;color:${c}">${p.toFixed(0)}%</span><div style="width:85%;background:linear-gradient(180deg,${c},${c}cc);height:${ph}%;border-radius:5px 5px 0 0;min-height:3px;box-shadow:0 2px 6px ${c}44"></div><span style="font-size:9px;font-weight:700;color:#475569;text-align:center;word-break:break-all;max-width:100%;padding-top:2px">${esc(d.name)}</span></div>`;});
+  return s+`</div>`;
+}
+
+// ══ ADMIN APP ════════════════════════════════════════
+function loadAdminApp(){
+  const tabs=[
+    {id:"today",label:"📋 Today"},{id:"prodmonitor",label:"📊 Prod Monitor"},
+    {id:"hourlymon",label:"⏰ Hourly Monitor"},
+    {id:"weekly",label:"📅 Weekly"},{id:"monthly",label:"🗓 Monthly"},
+    {id:"feedback",label:"💬 Feedback"},
+    ...(currentUser.role==="admin"?[{id:"team",label:"👥 Team Mgmt"},{id:"settings",label:"⚙️ Settings"}]:[])
+  ];
+  setTabs(tabs,id=>{
+    if(id==="today")renderToday();
+    else if(id==="prodmonitor")renderAdminProdMonitor();
+    else if(id==="hourlymon")renderAdminHourlyMonitor();
+    else if(id==="weekly")renderSummary("weekly");
+    else if(id==="monthly")renderSummary("monthly");
+    else if(id==="feedback")renderAdminFeedback();
+    else if(id==="team")renderTeam();
+    else if(id==="settings")renderSettings();
+  });
+  selTab("today");
+}
+
+// ── Today ──────────────────────────────────────────
+async function renderToday(){
+  let date=today(),ctx="",filterProc="ALL";
+  async function load(){
+    const allUsers=await S.get("rcm:users")||[];
+    // Supervisor sees only their assigned processes
+    const supProcs=currentUser.role==="supervisor"?(currentUser.supervisorAccess||[]).filter(p=>p!=="All"):null;
+    let members=allUsers.filter(u=>u.role==="employee"&&u.active!==false);
+    if(filterProc!=="ALL")members=members.filter(u=>u.process===filterProc||u.process==="All");
+    if(supProcs&&!supProcs.includes("All"))members=members.filter(u=>supProcs.includes(u.process));
+    const processes=await getProcesses();
+    const dayData=await S.get(`rcm:day:${date}`)||{};
+    const agents=Object.values(dayData).filter(a=>a&&a.name);
+    const filtAgents=filterProc==="ALL"?agents:agents.filter(a=>a.process===filterProc||a.process==="All");
+    const subs=members.filter(u=>dayData[u.empId]);
+    const pending=members.filter(u=>!dayData[u.empId]);
+    const allDone=pending.length===0&&members.length>0;
+    const activeA=filtAgents.filter(a=>!a.onLeave&&a.prodPct);
+    const qualA=filtAgents.filter(a=>a.qualScore);
+    const avgProd=avg(activeA.map(a=>parseFloat(a.prodPct)));
+    const avgQual=avg(qualA.map(a=>parseFloat(a.qualScore)));
+    const chartData=members.filter(u=>dayData[u.empId]?.prodPct).map(u=>({name:dayData[u.empId].name.split(" ")[0],prod:parseFloat(dayData[u.empId].prodPct)||0}));
+    setPage(`
+      <div class="row" style="margin-bottom:18px">
+        <div class="card" style="padding:10px 14px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px">DATE</span>
+          <input type="date" value="${date}" onchange="window._tdDate(this.value)" style="border:none;background:transparent;font-weight:700;color:#0a1628;font-size:14px;cursor:pointer"/>
+        </div>
+        <select style="border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;color:#0a1628;background:white;cursor:pointer" onchange="window._tdProc(this.value)">
+          <option value="ALL">All Processes</option>
+          ${processes.map(p=>`<option value="${p}" ${filterProc===p?"selected":""}>${p}</option>`).join("")}
+        </select>
+        <input class="inp" id="today-ctx" placeholder="Team-wide context (DDE downtime, VDI issues…)" value="${esc(ctx)}" style="max-width:300px"/>
+        <button class="btn" onclick="window._exportDay()" style="background:#f0fdf4;color:#10b981;margin-left:auto">📥 Export CSV</button>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+        ${kpi("Team",members.length,"#4f46e5","","👥")}${kpi("Submitted",subs.length+"/"+members.length,allDone?"#10b981":"#f97316",allDone?"✅ All done!":"")}
+        ${kpi("Pending",pending.length,pending.length>0?"#ef4444":"#10b981","","")}${kpi("Avg Prod",avgProd?avgProd+"%":"—",pCol(avgProd),"","")}${kpi("Avg Quality",avgQual?avgQual+"%":"—","#7c3aed","","")}
+      </div>
+      ${chartData.length?`<div class="card" style="margin-bottom:18px">${H2("Team Productivity — "+fmtD(date),"📊")}${barChart(chartData)}</div>`:""}
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:18px">
+        <div style="background:linear-gradient(135deg,#0a1628,#1e3a5f);padding:13px 20px;display:flex;align-items:center;justify-content:space-between">
+          <span style="color:white;font-weight:800;font-size:14px">📋 Submission Tracker — ${fmtD(date)}</span>
+          ${badge(subs.length+"/"+members.length+" Submitted",allDone?"#10b981":"#f59e0b")}
+        </div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Employee</th><th>Process</th><th>Status</th><th>Total</th><th>Target</th><th>Prod %</th><th>Quality</th><th>DT(h)</th><th>Reason</th><th>Time</th></tr></thead>
+          <tbody>${members.map((u,i)=>{const d=dayData[u.empId];const pc=d?pCol(d.prodPct):"#94a3b8";return`<tr style="background:${i%2===0?"white":"#fafbff"}">
+            <td><div style="font-weight:700;color:#0a1628;cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="showEmpDetail('${esc(u.empId)}')">${esc(u.name)}</div><div style="font-size:10px;color:#94a3b8;font-family:monospace">${esc(u.empId)}</div></td>
+            <td style="color:#64748b;font-size:12px">${esc(u.process)}</td>
+            <td>${d?badge("✅ Done","#10b981"):badge("⏳ Pending","#f97316")}</td>
+            <td style="font-weight:600">${d?.total||"—"}</td><td style="color:#94a3b8">${d?.target||"—"}</td>
+            <td style="font-weight:900;color:${pc};font-size:15px">${d?.prodPct?d.prodPct+"%":"—"}</td>
+            <td style="font-weight:700;color:${d?.qualScore?pCol(d.qualScore):"#94a3b8"}">${d?.qualScore?d.qualScore+"%":"—"}</td>
+            <td style="color:#94a3b8">${d?.downtime||"—"}</td>
+            <td style="color:#94a3b8;font-size:11px;max-width:130px">${d?.reason?esc(d.reason.slice(0,35)+"…"):"—"}</td>
+            <td style="color:#94a3b8;font-size:11px;white-space:nowrap">${d?.submittedAt?new Date(d.submittedAt).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}):"—"}</td>
+          </tr>`;}).join("")}</tbody>
+        </table></div>
+      </div>
+      <button class="btn btn-primary" onclick="window._genEmail()" style="width:100%;padding:14px;font-size:15px;border-radius:12px;justify-content:center;margin-bottom:16px">✨ Generate Professional Email</button>
+      <div id="email-output"></div>
+    `);
+    window._tdDate=v=>{date=v;load();};window._tdProc=v=>{filterProc=v;load();};
+    window._exportDay=async()=>{await exportWithTasks([date],null,`Daily_${date}.csv`);};
+    window._genEmail=async()=>{
+      const dd=await S.get(`rcm:day:${date}`)||{};const agents=Object.values(dd).filter(a=>a?.name);if(!agents.length){alert("No data.");return;}
+      const ctx=document.getElementById("today-ctx")?.value||"";
+      document.getElementById("email-output").innerHTML=`<div class="card" style="text-align:center;padding:30px;color:#94a3b8">⏳ AI is writing your email…</div>`;
+      const text=agents.map(a=>`• ${a.name}(${a.empId})|${a.process}${a.onLeave?" LEAVE":""} Total:${a.total||"N/A"} Prod:${a.prodPct?a.prodPct+"%":"N/A"}${a.downtime?` DT:${a.downtime}h`:""}${a.qualScore?` Qual:${a.qualScore}%`:""}${a.reason?` REASON:${a.reason}`:""}${a.notes?` ACTION:${a.notes}`:""}`).join("\n");
+      const prompt=`You are Home Health RCM Team Lead at 3Gen Consulting. Write professional daily productivity email to Ketan Sir for ${fmtD(date)}.\nDATA:\n${text}\n${ctx?`CONTEXT: ${ctx}`:""}\nWrite (plain text, ═══ dividers, ○ bullets): Hi Ketan Sir, [intro] [Per PROCESS: 🏆 Top Performer ⚠ Needs Attention with root cause + action]\nRegards, ${currentUser.name}\nHome Health RCM Team Lead | 3Gen Consulting`;
+      try{
+        const et=await callAI(prompt);window._et=et;
+        document.getElementById("email-output").innerHTML=`<div class="card" style="padding:0;overflow:hidden"><div style="background:linear-gradient(135deg,#0a1628,#1e3a5f);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span style="color:rgba(255,255,255,0.6);font-size:12px">To: Ketan Sir · Subject: Team Productivity Summary – ${fmtD(date)}</span><div style="display:flex;gap:8px"><button class="btn btn-amber" onclick="navigator.clipboard.writeText(window._et);this.textContent='✅ Copied!';setTimeout(()=>this.textContent='📋 Copy',2000)" style="padding:6px 14px;font-size:12px">📋 Copy Email</button><button class="btn" onclick="window.location.href='mailto:?subject='+encodeURIComponent('Team Productivity Summary – ${fmtD(date)}')+'&body='+encodeURIComponent(window._et)" style="background:rgba(99,102,241,0.2);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);padding:6px 14px;font-size:12px">📧 Outlook</button></div></div><div style="padding:24px 28px;white-space:pre-wrap;font-size:14px;line-height:1.9;color:#1e293b;font-family:Calibri,Segoe UI,sans-serif">${esc(et)}</div></div>`;
+      }catch(e){document.getElementById("email-output").innerHTML=`<div class="err">${e.message==="NO_KEY"?"⚠ No API key set. Go to ⚙️ Settings.":"❌ Failed. Check API key."}</div>`;}
+    };
+  }
+  load();
+}
+
+// ── Prod Monitor ───────────────────────────────────
+async function renderAdminProdMonitor(){
+  let selDate=today(),filterProc="ALL";
+  async function load(){
+    const allUsers=await S.get("rcm:users")||[];
+    const processes=await getProcesses();
+    let members=allUsers.filter(u=>u.role==="employee"&&u.active!==false);
+    const supProcs=currentUser.role==="supervisor"?(currentUser.supervisorAccess||[]).filter(p=>p!=="All"):null;
+    if(supProcs&&!supProcs.includes("All"))members=members.filter(u=>supProcs.includes(u.process));
+    if(filterProc!=="ALL")members=members.filter(u=>u.process===filterProc||u.process==="All");
+    const records=await Promise.all(members.map(u=>S.get(`rcm:prod:${u.empId}:${selDate}`)));
+    const bypasses=await Promise.all(members.map(u=>S.get(`rcm:bypass:${u.empId}:${selDate}`)));
+    setPage(`
+      <div class="row" style="margin-bottom:18px">
+        <div class="card" style="padding:10px 14px;display:flex;align-items:center;gap:10px">
+          <input type="date" value="${selDate}" onchange="window._pmDate(this.value)" style="border:none;background:transparent;font-weight:700;color:#0a1628;font-size:14px;cursor:pointer"/>
+        </div>
+        <select style="border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;color:#0a1628;background:white;cursor:pointer" onchange="window._pmProc(this.value)">
+          <option value="ALL">All Processes</option>
+          ${processes.map(p=>`<option value="${p}" ${filterProc===p?"selected":""}>${p}</option>`).join("")}
+        </select>
+        <button class="btn btn-light" onclick="load()">↺ Refresh</button>
+        <button class="btn" onclick="window._pmExport()" style="background:#f0fdf4;color:#10b981">📥 Export CSV</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="background:linear-gradient(135deg,#0a1628,#1e3a5f);padding:13px 20px"><span style="color:white;font-weight:800;font-size:14px">📊 Prod Monitor — ${fmtD(selDate)}</span></div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Employee</th><th>Process</th><th>Status</th><th>Total</th><th>Adj.Target</th><th>Prod %</th><th>Deficit</th><th>Downtime</th><th>Remark</th><th>Action</th></tr></thead>
+          <tbody>${members.map((u,i)=>{const pr=records[i];const bp=bypasses[i];const isBP=!!bp;const prodPct=isBP?100:(pr?.prodPct||0);const deficit=isBP?0:(pr?.deficit||0);return`<tr style="background:${i%2===0?"white":"#fafbff"}">
+            <td><div style="font-weight:700;color:#0a1628;cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="showEmpDetail('${esc(u.empId)}')">${esc(u.name)}</div><div style="font-size:10px;color:#94a3b8;font-family:monospace">${esc(u.empId)}</div></td>
+            <td style="color:#64748b;font-size:12px">${esc(u.process)}</td>
+            <td>${pr?badge("✅ Yes","#10b981"):badge("⏳ No","#f97316")}</td>
+            <td style="font-weight:700">${pr?pr.total.toFixed(1):"—"}</td>
+            <td style="color:#94a3b8">${pr?pr.adjTarget.toFixed(1):"—"}</td>
+            <td style="font-weight:900;color:${pCol(prodPct)};font-size:15px">${pr?(isBP?"100%":prodPct+"%"):"—"}</td>
+            <td style="font-weight:700;color:${deficit>0?"#ef4444":"#10b981"}">${pr?(isBP?"0":"-"+deficit.toFixed(1)):"—"}</td>
+            <td style="color:#94a3b8">${pr?.downtimeHours?pr.downtimeHours+"h":"—"}</td>
+            <td style="color:#94a3b8;font-size:11px;max-width:120px">${pr?.remark?esc(pr.remark.slice(0,35)):"—"}</td>
+            <td><div style="display:flex;gap:5px;flex-wrap:wrap">
+              ${pr&&!isBP&&deficit>0?`<button class="btn" onclick="bypassDeficit('${esc(u.empId)}','${selDate}')" style="background:#e0e7ff;color:#4f46e5;padding:4px 10px;font-size:11px;border-radius:8px">🛡 Bypass</button>`:""}
+              ${isBP?`<button class="btn btn-danger" onclick="removeBypass('${esc(u.empId)}','${selDate}')" style="padding:4px 10px;font-size:11px;border-radius:8px">✕ Remove</button>`:""}
+            </div></td>
+          </tr>`;}).join("")}</tbody>
+        </table></div>
+      </div>
+    `);
+    window._pmDate=v=>{selDate=v;load();};window._pmProc=v=>{filterProc=v;load();};
+    window._pmExport=async()=>{await exportWithTasks([selDate],null,`ProdMonitor_${selDate}.csv`);};
+    window.bypassDeficit=async(empId,date)=>{const reason=prompt("Reason for bypassing deficit:");if(reason===null)return;await S.set(`rcm:bypass:${empId}:${date}`,{bypassedBy:currentUser.empId,reason,at:new Date().toISOString()});load();};
+    window.removeBypass=async(empId,date)=>{if(!confirm("Remove bypass?"))return;await S.set(`rcm:bypass:${empId}:${date}`,null);load();};
+  }
+  load();
+}
+
+// ── Admin Hourly Monitor ───────────────────────────
+async function renderAdminHourlyMonitor(){
+  let selDate=today(),filterProc="ALL",searchQ="";
+  async function load(){
+    const allUsers=await S.get("rcm:users")||[];
+    const processes=await getProcesses();
+    let members=allUsers.filter(u=>u.role==="employee"&&u.active!==false);
+    const supProcs=currentUser.role==="supervisor"?(currentUser.supervisorAccess||[]).filter(p=>p!=="All"):null;
+    if(supProcs&&!supProcs.includes("All"))members=members.filter(u=>supProcs.includes(u.process));
+    if(filterProc!=="ALL")members=members.filter(u=>u.process===filterProc||u.process==="All");
+    if(searchQ)members=members.filter(u=>u.name.toLowerCase().includes(searchQ.toLowerCase())||u.empId.toLowerCase().includes(searchQ.toLowerCase()));
+    const hourlyRecs=await Promise.all(members.map(u=>S.get(`rcm:hourly:${u.empId}:${selDate}`)));
+    setPage(`
+      <div class="row" style="margin-bottom:18px">
+        <div class="card" style="padding:10px 14px;display:flex;align-items:center;gap:10px">
+          <input type="date" value="${selDate}" onchange="window._hmDate(this.value)" style="border:none;background:transparent;font-weight:700;color:#0a1628;font-size:14px;cursor:pointer"/>
+        </div>
+        <select style="border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;color:#0a1628;background:white;cursor:pointer" onchange="window._hmProc(this.value)">
+          <option value="ALL">All Processes</option>
+          ${processes.map(p=>`<option value="${p}" ${filterProc===p?"selected":""}>${p}</option>`).join("")}
+        </select>
+        <div class="search-box"><input class="inp" value="${esc(searchQ)}" placeholder="Search employee…" oninput="window._hmSearch(this.value)" style="width:200px"/></div>
+        <button class="btn btn-light" onclick="load()">↺</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="background:linear-gradient(135deg,#0a1628,#1e3a5f);padding:13px 20px"><span style="color:white;font-weight:800;font-size:14px">⏰ Hourly Tracker Monitor — ${fmtD(selDate)}</span></div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Employee</th><th>Process</th>${HOURLY_SLOTS.map(s=>`<th>${s}</th>`).join("")}<th>Total</th><th>Status</th></tr></thead>
+          <tbody>${members.map((u,i)=>{const hr=hourlyRecs[i];const slots=hr?.slots||{};const totals=HOURLY_SLOTS.map(s=>parseInt(slots[s])||0);const grand=totals.reduce((a,b)=>a+b,0);return`<tr style="background:${i%2===0?"white":"#fafbff"}">
+            <td><div style="font-weight:700;color:#0a1628;cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="showEmpDetail('${esc(u.empId)}')">${esc(u.name)}</div><div style="font-size:10px;color:#94a3b8;font-family:monospace">${esc(u.empId)}</div></td>
+            <td style="color:#64748b;font-size:12px">${esc(u.process)}</td>
+            ${HOURLY_SLOTS.map(s=>`<td style="text-align:center;font-weight:${slots[s]?"700":"400"};color:${slots[s]?"#4f46e5":"#cbd5e1"}">${slots[s]||"—"}</td>`).join("")}
+            <td style="font-weight:900;color:#4f46e5;font-size:15px">${grand||"—"}</td>
+            <td>${hr?badge("✅ Filed","#10b981"):badge("⏳ Pending","#f97316")}</td>
+          </tr>`;}).join("")}</tbody>
+        </table></div>
+      </div>
+    `);
+    window._hmDate=v=>{selDate=v;load();};window._hmProc=v=>{filterProc=v;load();};window._hmSearch=v=>{searchQ=v;load();};
+  }
+  load();
+}
+
+// ── Summary ────────────────────────────────────────
+async function renderSummary(type){
+  let year=new Date().getFullYear(),month=new Date().getMonth()+1,wStart=getMon(today()),selUser="ALL",filterProc="ALL";
+  async function load(){
+    const allUsers=await S.get("rcm:users")||[];
+    const processes=await getProcesses();
+    let users=allUsers.filter(u=>u.role==="employee"&&u.active!==false);
+    const supProcs=currentUser.role==="supervisor"?(currentUser.supervisorAccess||[]).filter(p=>p!=="All"):null;
+    if(supProcs&&!supProcs.includes("All"))users=users.filter(u=>supProcs.includes(u.process));
+    const dates=type==="weekly"?wDays(wStart):mDays(year,month);
+    const recs=(await Promise.all(dates.map(d=>S.get(`rcm:day:${d}`).then(r=>r?{date:d,...r}:null)))).filter(Boolean);
+    const map={};
+    for(const rec of recs){for(const[k,sub] of Object.entries(rec)){if(k==="date"||!sub?.name)continue;if(filterProc!=="ALL"&&sub.process!==filterProc)continue;if(supProcs&&!supProcs.includes("All")&&!supProcs.includes(sub.process))continue;const id=sub.empId||sub.name;if(!map[id])map[id]={name:sub.name,empId:sub.empId,process:sub.process,prods:[],quals:[],totals:[]};if(!sub.onLeave&&sub.prodPct)map[id].prods.push(parseFloat(sub.prodPct));if(sub.qualScore)map[id].quals.push(parseFloat(sub.qualScore));if(sub.total)map[id].totals.push(parseInt(sub.total)||0);}}
+    let agStats=Object.values(map).map(a=>({...a,avgProd:avg(a.prods)||0,avgQual:avg(a.quals)||0,totalClaims:a.totals.reduce((s,v)=>s+v,0),daysWorked:a.prods.length,above100:a.prods.filter(p=>p>=100).length,below75:a.prods.filter(p=>p<75).length})).sort((a,b)=>b.avgProd-a.avgProd);
+    const fStats=selUser==="ALL"?agStats:agStats.filter(a=>a.empId===selUser||a.name===selUser);
+    const tap=avg(fStats.map(a=>a.avgProd)),taq=avg(fStats.filter(a=>a.avgQual>0).map(a=>a.avgQual)),tc=fStats.reduce((s,a)=>s+a.totalClaims,0);
+    const pL=type==="weekly"?`${fmtD(wStart)} – ${fmtD(addDays(wStart,4))}`:`${MONTHS[month-1]} ${year}`;
+    const agOpts=agStats.map(a=>`<option value="${esc(a.empId||a.name)}"${selUser===a.empId?"selected":""}>${esc(a.name)} (${esc(a.empId)})</option>`).join("");
+    setPage(`
+      <div class="card row" style="margin-bottom:18px">
+        ${type==="weekly"?`<button class="btn btn-light" onclick="window._wP()">←</button><span style="font-weight:700;color:#0a1628;font-size:13px;min-width:230px;text-align:center">${fmtD(wStart)} – ${fmtD(addDays(wStart,4))}</span><button class="btn btn-light" onclick="window._wN()">→</button>`:`<button class="btn btn-light" onclick="window._mP()">←</button><span style="font-weight:700;color:#0a1628;font-size:14px;min-width:130px;text-align:center">${MONTHS[month-1]} ${year}</span><button class="btn btn-light" onclick="window._mN()">→</button>`}
+        <select style="border:1.5px solid #e2e8f0;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;color:#0a1628;background:white;cursor:pointer" onchange="window._fP(this.value)"><option value="ALL">All Processes</option>${processes.map(p=>`<option value="${p}" ${filterProc===p?"selected":""}>${p}</option>`).join("")}</select>
+        <select class="inp" style="width:auto;min-width:170px" onchange="window._sA(this.value)"><option value="ALL">All Agents</option>${agOpts}</select>
+        <button class="btn btn-light" onclick="load()">↺</button>
+        <button class="btn" onclick="window._expS()" style="background:#f0fdf4;color:#10b981">📥 Export CSV</button>
+      </div>
+      ${recs.length===0?`<div class="card" style="text-align:center;padding:60px;color:#94a3b8"><div style="font-size:44px;margin-bottom:14px">📭</div><div style="font-size:16px;font-weight:700;color:#0a1628">No data for this ${type==="weekly"?"week":"month"}</div></div>`:`
+      <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+        ${kpi("Days",recs.length+"/"+dates.length,recs.length===dates.length?"#10b981":"#f97316","","📅")}${kpi("Agents",fStats.length,"#4f46e5","","👥")}${kpi("Avg Prod",tap?tap+"%":"—",pCol(tap),"","📊")}${kpi("Avg Quality",taq?taq+"%":"—","#7c3aed","","⭐")}${kpi("Total Claims",tc,"#2563eb","","📁")}
+      </div>
+      ${fStats.length?`<div class="card" style="margin-bottom:18px">${H2("Agent Average Productivity — "+pL,"📊")}${barChart(fStats.map(a=>({name:a.name.split(" ")[0],prod:a.avgProd})))}</div>`:""}
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:18px">
+        <div style="background:linear-gradient(135deg,#0a1628,#1e3a5f);padding:13px 20px"><span style="color:white;font-weight:800;font-size:14px">👥 Performance Summary — ${pL}</span></div>
+        <div style="overflow-x:auto"><table><thead><tr><th>Rank</th><th>Agent</th><th>Process</th><th>Days</th><th>Avg Prod</th><th>≥100</th><th>&lt;75</th><th>Claims</th><th>Avg Qual</th></tr></thead>
+        <tbody>${fStats.map((a,i)=>`<tr style="background:${i===0?"#fffbeb":i%2===0?"white":"#fafbff"}">
+          <td style="font-weight:800;color:${i===0?"#f59e0b":"#94a3b8"};font-size:${i===0?16:13}px">${i===0?"🏆":"#"+(i+1)}</td>
+          <td><div style="font-weight:700;color:#0a1628;cursor:pointer;text-decoration:underline" onclick="showEmpDetail('${esc(a.empId)}')">${esc(a.name)}</div><div style="font-size:10px;color:#94a3b8;font-family:monospace">${esc(a.empId)}</div></td>
+          <td style="color:#64748b;font-size:11px">${esc(a.process)}</td><td style="text-align:center;font-weight:600">${a.daysWorked}</td>
+          <td style="font-weight:900;color:${pCol(a.avgProd)};font-size:16px">${a.avgProd}%</td>
+          <td style="text-align:center">${badge(a.above100,"#10b981")}</td><td style="text-align:center">${badge(a.below75,a.below75>0?"#ef4444":"#94a3b8")}</td>
+          <td style="text-align:center;font-weight:600">${a.totalClaims}</td><td style="font-weight:700;color:${a.avgQual>0?pCol(a.avgQual):"#94a3b8"}">${a.avgQual>0?a.avgQual+"%":"—"}</td>
+        </tr>`).join("")}</tbody></table></div>
+      </div>
+      <button class="btn btn-primary" onclick="window._genSE()" style="width:100%;padding:14px;font-size:15px;border-radius:12px;justify-content:center;margin-bottom:16px">✨ Generate ${type==="weekly"?"Weekly":"Monthly"} Summary Email</button>
+      <div id="sum-email-out"></div>`}
+    `);
+    window._sumD={agStats:fStats,pL,type,tap,taq};window._sumRecs=recs;window._sumDates=dates;
+    window._wP=()=>{wStart=addDays(wStart,-7);load();};window._wN=()=>{wStart=addDays(wStart,7);load();};
+    window._mP=()=>{if(month===1){month=12;year--;}else month--;load();};window._mN=()=>{if(month===12){month=1;year++;}else month++;load();};
+    window._sA=v=>{selUser=v;load();};window._fP=v=>{filterProc=v;load();};
+    window._expS=async()=>{await exportWithTasks(window._sumDates,selUser==="ALL"?null:selUser,`RCM_${type}_${pL.replace(/[^a-z0-9]/gi,"_")}.csv`);};
+    window._genSE=async()=>{
+      const{agStats,pL,type:t,tap,taq}=window._sumD;if(!agStats.length){alert("No data.");return;}
+      document.getElementById("sum-email-out").innerHTML=`<div class="card" style="text-align:center;padding:30px;color:#94a3b8">⏳ Writing ${t} summary…</div>`;
+      const txt=agStats.map(a=>`• ${a.name}(${a.empId})|${a.process}|AvgProd:${a.avgProd}%|Days:${a.daysWorked}|≥100:${a.above100}|<75:${a.below75}|Claims:${a.totalClaims}${a.avgQual?`|AvgQual:${a.avgQual}%`:""}`).join("\n");
+      const prompt=`You are Home Health RCM Team Lead at 3Gen Consulting. Write professional ${t} summary for ${pL} to Ketan Sir.\nDATA:\n${txt}\nTeamAvgProd:${tap}%${taq?` TeamAvgQual:${taq}%`:""}\nFormat: Hi Ketan Sir,[Intro]|══ TEAM OVERVIEW ══|══ TOP PERFORMERS ══|══ NEEDS ATTENTION ══|══ PLAN FOR ${t==="weekly"?"NEXT WEEK":"NEXT MONTH"} ══|Regards,${currentUser.name}|Home Health RCM Team Lead|3Gen Consulting\nPlain text. ○ bullets. RCM terms.`;
+      try{const et=await callAI(prompt);window._set=et;document.getElementById("sum-email-out").innerHTML=`<div class="card" style="padding:0;overflow:hidden"><div style="background:linear-gradient(135deg,#0a1628,#1e3a5f);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span style="color:rgba(255,255,255,0.6);font-size:12px">Subject: ${t==="weekly"?"Weekly":"Monthly"} Summary – ${pL}</span><button class="btn btn-amber" onclick="navigator.clipboard.writeText(window._set);this.textContent='✅ Copied!';setTimeout(()=>this.textContent='📋 Copy',2000)" style="padding:6px 14px;font-size:12px">📋 Copy</button></div><div style="padding:24px 28px;white-space:pre-wrap;font-size:14px;line-height:1.9;color:#1e293b;font-family:Calibri,Segoe UI,sans-serif">${esc(et)}</div></div>`;}
+      catch(e){document.getElementById("sum-email-out").innerHTML=`<div class="err">${e.message==="NO_KEY"?"⚠ No API key.":"❌ Failed."}</div>`;}
+    };
+  }
+  load();
+}
+
+// ── Feedback ───────────────────────────────────────
+async function renderAdminFeedback(){
+  const allUsers=await S.get("rcm:users")||[];
+  const processes=await getProcesses();
+  let selU="",fbDate=today(),filterProc="ALL";
+  async function load(){
+    const allFb=await S.get("rcm:feedback")||{};
+    let users=allUsers.filter(u=>u.role==="employee"&&u.active!==false);
+    if(filterProc!=="ALL")users=users.filter(u=>u.process===filterProc);
+    const unack=Object.values(allFb).flat().filter(f=>!f.acknowledged).length;
+    const curFb=selU?(allFb[selU]||[]).slice().reverse():[];
+    setPage(`
+      ${unack>0?`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 16px;margin-bottom:16px;font-size:13px;font-weight:600;color:#92400e">⚠ ${unack} feedback message${unack>1?"s":""} awaiting acknowledgement</div>`:""}
+      <div class="g2">
+        <div class="card">
+          ${H2("Send Feedback","✍️")}
+          <div style="margin-bottom:10px"><select style="border:1.5px solid #e2e8f0;border-radius:9px;padding:7px 12px;font-size:12px;background:white;cursor:pointer;margin-bottom:8px;width:100%" onchange="window._fbFP(this.value)"><option value="ALL">All Processes</option>${processes.map(p=>`<option value="${p}">${p}</option>`).join("")}</select>
+          <select class="inp" id="fb-sel" onchange="window._fbSel(this.value)"><option value="">-- Choose team member --</option>${users.map(u=>`<option value="${esc(u.empId)}"${selU===u.empId?"selected":""}>${esc(u.name)} (${esc(u.empId)})</option>`).join("")}</select></div>
+          <div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">DATE</div><input type="date" class="inp" id="fb-date" value="${fbDate}"/></div>
+          <div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">MESSAGE</div><textarea class="inp" id="fb-text" rows="5" placeholder="Write specific, constructive feedback…" style="resize:vertical"></textarea></div>
+          <button class="btn btn-primary" onclick="window._sendFb()" style="width:100%;padding:11px;justify-content:center">📤 Send Feedback</button>
+          <div id="fb-msg" style="margin-top:8px;font-size:13px;display:none"></div>
+        </div>
+        <div class="card">
+          ${H2(`History${selU?` — ${users.find(u=>u.empId===selU)?.name||""}`:""}`, "📨")}
+          ${!selU?`<div style="color:#94a3b8;text-align:center;padding:40px;font-size:13px">Select an employee to view their feedback</div>`:
+          curFb.length===0?`<div style="color:#94a3b8;text-align:center;padding:40px;font-size:13px">No feedback sent yet</div>`:
+          `<div style="max-height:420px;overflow-y:auto">${curFb.map(f=>`<div style="border:1.5px solid ${f.acknowledged?"#6ee7b7":"#fde68a"};border-radius:12px;padding:14px;margin-bottom:10px;background:${f.acknowledged?"#f0fdf4":"#fffbeb"}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:12px;font-weight:700;color:#0a1628">${fmtD(f.date)}</span><div style="display:flex;gap:6px;align-items:center">${badge(f.acknowledged?"✅ Acknowledged":"⏳ Awaiting",f.acknowledged?"#10b981":"#f97316")}<button class="btn btn-danger" onclick="window._delFb(${f.id},'${esc(selU)}')" style="padding:3px 9px;font-size:11px;border-radius:7px">🗑</button></div></div><div style="font-size:13px;color:#1e293b;line-height:1.6">${esc(f.text)}</div></div>`).join("")}</div>`}
+        </div>
+      </div>
+    `);
+    window._fbFP=v=>{filterProc=v;load();};window._fbSel=v=>{selU=v;load();};
+    window._sendFb=async()=>{const sel=document.getElementById("fb-sel")?.value;const date=document.getElementById("fb-date")?.value||today();const text=document.getElementById("fb-text")?.value?.trim();const msg=document.getElementById("fb-msg");if(!sel||!text){if(msg){msg.textContent="⚠ Select employee and write message.";msg.style.display="block";msg.style.color="#ef4444";}return;}const all=await S.get("rcm:feedback")||{};all[sel]=[...(all[sel]||[]),{id:Date.now(),date,text,acknowledged:false,sentAt:new Date().toISOString()}];await S.set("rcm:feedback",all);if(msg){msg.textContent="✅ Feedback sent!";msg.style.display="block";msg.style.color="#10b981";}setTimeout(()=>load(),1200);};
+    window._delFb=async(fbId,empId)=>{if(!confirm("Delete this feedback?"))return;const all=await S.get("rcm:feedback")||{};if(all[empId])all[empId]=all[empId].filter(f=>f.id!==fbId);await S.set("rcm:feedback",all);load();};
+  }
+  load();
+}
+
+// ── Team Management ────────────────────────────────
+async function renderTeam(){
+  let filterProc="ALL",searchQ="",selectedEmpId=null;
+  async function load(){
+    const users=await S.get("rcm:users")||[];
+    const pwReqs=(await S.get("rcm:pwreset")||[]).filter(r=>r.status==="pending");
+    let processes=await getProcesses();
+    let filtered=users.filter(u=>u.role==="employee"||u.role==="supervisor");
+    if(filterProc!=="ALL")filtered=filtered.filter(u=>u.process===filterProc||u.process==="All");
+    if(searchQ)filtered=filtered.filter(u=>u.name.toLowerCase().includes(searchQ.toLowerCase())||u.empId.toLowerCase().includes(searchQ.toLowerCase()));
+    setPage(`
+      ${pwReqs.length>0?`<div style="background:#fff7ed;border:2px solid rgba(249,115,22,0.3);border-radius:14px;padding:20px;margin-bottom:20px">${H2(`Password Reset Requests (${pwReqs.length})`,"🔔")}${pwReqs.map((r,i)=>`<div class="row" style="background:white;border-radius:10px;padding:12px 14px;margin-bottom:8px;border:1px solid #fed7aa"><div style="flex:1"><div style="font-weight:800;color:#0a1628">${esc(r.empId)}</div><div style="font-size:11px;color:#94a3b8">${esc(r.reason||"No reason")} · ${new Date(r.requestedAt).toLocaleString("en-IN")}</div></div><input class="inp" id="pr_${i}" placeholder="Set new password" style="width:180px"/><button class="btn btn-green" onclick="window._approvePR(${i},'${esc(r.empId)}','${esc(r.requestedAt)}')" style="padding:8px 14px;font-size:12px">✅ Approve</button></div>`).join("")}</div>`:""}
+
+      <!-- Process Management -->
+      <div class="card" style="margin-bottom:20px">
+        ${H2("Process / Project Management","🏢")}
+        <div class="row" style="margin-bottom:12px">
+          <input class="inp" id="new-proc-input" placeholder="Add new process e.g. PMB Medicare HOS" style="max-width:320px"/>
+          <button class="btn btn-primary" onclick="window._addProc()" style="padding:9px 20px">+ Add Process</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${processes.map(p=>`<div style="display:flex;align-items:center;gap:6px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:20px;padding:6px 14px">
+            <span style="font-size:13px;font-weight:600;color:#4f46e5">${esc(p)}</span>
+            <button onclick="window._delProc('${esc(p)}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;line-height:1;padding:0 2px">×</button>
+          </div>`).join("")}
+        </div>
+      </div>
+
+      <!-- Create User -->
+      <div class="card" style="margin-bottom:20px">
+        ${H2("Create New User Account","➕")}
+        <div class="g3" style="margin-bottom:14px">
+          <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Employee ID</div><input class="inp" id="nu-empid" placeholder="EMP001"/></div>
+          <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Full Name</div><input class="inp" id="nu-name" placeholder="Agent Name"/></div>
+          <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Password</div><input class="inp" id="nu-pass" placeholder="Set password"/></div>
+          <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Process</div>
+            <select class="inp" id="nu-proc"><option value="All">All Processes</option>${processes.map(p=>`<option>${esc(p)}</option>`).join("")}</select></div>
+          <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Role</div>
+            <select class="inp" id="nu-role" onchange="setRoleDef(this.value)"><option value="employee">👤 Employee</option><option value="supervisor">🔷 Supervisor</option><option value="admin">👑 Admin</option></select></div>
+          <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Overall Target</div><input class="inp" id="nu-target" type="number" placeholder="50" value="50"/></div>
+        </div>
+        <div style="margin-bottom:14px" id="nu-sup-access-wrap" style="display:none">
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Supervisor Access To (Ctrl+Click for multiple)</div>
+          <select class="inp" id="nu-supaccess" multiple style="height:90px"><option value="All">All Processes</option>${processes.map(p=>`<option>${esc(p)}</option>`).join("")}</select>
+        </div>
+        <div style="margin-bottom:16px"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Access Permissions</div>
+          <div id="nu-acc" style="display:flex;flex-wrap:wrap;gap:8px">${ACCESSES.map(opt=>`<label style="display:flex;align-items:center;gap:6px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:20px;padding:5px 13px;cursor:pointer;font-size:12px;font-weight:600;color:#64748b;transition:all 0.15s"><input type="checkbox" value="${esc(opt)}" class="acc-cb" style="display:none"/> ${esc(opt)}</label>`).join("")}
+          </div></div>
+        <div id="nu-msg" style="font-size:13px;margin-bottom:10px;display:none"></div>
+        <button class="btn btn-primary" onclick="window._createUser()" style="padding:11px 28px;font-size:14px;justify-content:center">Create User Account</button>
+      </div>
+
+      <!-- Filter + User list -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="background:linear-gradient(135deg,#0a1628,#1e3a5f);padding:13px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span style="color:white;font-weight:800;font-size:14px">👥 All Users (${users.length})</span>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <select style="border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 12px;background:rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:700;cursor:pointer" onchange="window._tmFP(this.value)">
+              <option value="ALL" ${filterProc==="ALL"?"selected":""}>All Processes</option>
+              ${processes.map(p=>`<option value="${p}" ${filterProc===p?"selected":""}>${p}</option>`).join("")}
+            </select>
+            <div class="search-box" style="position:relative"><input placeholder="Search name or ID…" value="${esc(searchQ)}" oninput="window._tmSearch(this.value)" style="border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 12px 6px 32px;background:rgba(255,255,255,0.1);color:white;font-size:12px;outline:none;width:180px"/><span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px">🔍</span></div>
+          </div>
+        </div>
+        <div style="overflow-x:auto"><table><thead><tr><th>Emp ID</th><th>Name</th><th>Role</th><th>Process</th><th>Target</th><th>Supervisor Access</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${filtered.map((u,i)=>`<tr style="background:${i%2===0?"white":"#fafbff"}">
+          <td style="font-weight:800;color:#0a1628;font-family:monospace">${esc(u.empId)}</td>
+          <td style="font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px;color:#0a1628" onclick="showEmpDetail('${esc(u.empId)}')">${esc(u.name)}</td>
+          <td>${badge(u.role==="admin"?"👑 Admin":u.role==="supervisor"?"🔷 Supervisor":"👤 Employee",u.role==="admin"?"#ef4444":u.role==="supervisor"?"#2563eb":"#4f46e5")}</td>
+          <td style="color:#64748b;font-size:12px">${esc(u.process)}</td>
+          <td style="font-weight:700;color:#4f46e5">${u.overallTarget||50}</td>
+          <td style="color:#64748b;font-size:11px">${u.role==="supervisor"?(u.supervisorAccess||[]).join(", ")||"—":"—"}</td>
+          <td>${badge(u.active!==false?"🟢 Active":"🔴 Disabled",u.active!==false?"#10b981":"#ef4444")}</td>
+          <td><div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button class="btn" onclick="openEditUser('${esc(u.empId)}')" style="background:#e0e7ff;color:#4f46e5;padding:5px 10px;font-size:11px;border-radius:8px">✏️ Edit</button>
+            ${u.empId!==currentUser.empId?`<button class="btn" onclick="window._toggleU('${esc(u.empId)}')" style="background:${u.active!==false?"#fee2e2":"#d1fae5"};color:${u.active!==false?"#ef4444":"#10b981"};padding:5px 10px;font-size:11px;border-radius:8px">${u.active!==false?"Disable":"Enable"}</button>`:""}
+          </div></td>
+        </tr>`).join("")}
+        ${filtered.length===0?`<tr><td colspan="8" style="text-align:center;padding:40px;color:#94a3b8">No users found</td></tr>`:""}
+        </tbody></table></div>
+      </div>
+    `);
+    // Access pill interactions
+    document.querySelectorAll(".acc-cb").forEach(cb=>{cb.addEventListener("change",function(){const lbl=this.closest("label");if(lbl){lbl.style.background=this.checked?"#e0e7ff":"#f8fafc";lbl.style.borderColor=this.checked?"#4f46e5":"#e2e8f0";lbl.style.color=this.checked?"#4f46e5":"#64748b";}});});
+    window.setRoleDef=r=>{
+      const def=r==="admin"?ACCESSES:r==="supervisor"?["View Team Progress","Generate Email","Send Feedback","View Reports","View Own Progress"]:["Prod Report","View Own Progress","Hourly Tracker","Call Tracker"];
+      document.querySelectorAll(".acc-cb").forEach(cb=>{cb.checked=def.includes(cb.value);const lbl=cb.closest("label");if(lbl){lbl.style.background=cb.checked?"#e0e7ff":"#f8fafc";lbl.style.borderColor=cb.checked?"#4f46e5":"#e2e8f0";lbl.style.color=cb.checked?"#4f46e5":"#64748b";}});
+      const wrap=document.getElementById("nu-sup-access-wrap");if(wrap)wrap.style.display=r==="supervisor"?"block":"none";
+    };
+    window._tmFP=v=>{filterProc=v;load();};window._tmSearch=v=>{searchQ=v;load();};
+    window._addProc=async()=>{const v=document.getElementById("new-proc-input")?.value?.trim();if(!v)return;const procs=await getProcesses();if(!procs.includes(v)){procs.push(v);await S.set("rcm:processes",procs);}load();};
+    window._delProc=async p=>{if(!confirm(`Remove process "${p}"?`))return;const procs=await getProcesses();await S.set("rcm:processes",procs.filter(x=>x!==p));load();};
+    window._createUser=async()=>{
+      const empId=document.getElementById("nu-empid")?.value?.trim()?.toUpperCase();const name=document.getElementById("nu-name")?.value?.trim();const pass=document.getElementById("nu-pass")?.value?.trim();const process=document.getElementById("nu-proc")?.value;const role=document.getElementById("nu-role")?.value;const access=[...document.querySelectorAll(".acc-cb:checked")].map(c=>c.value);const overallTarget=parseInt(document.getElementById("nu-target")?.value)||50;
+      const supAccEl=document.getElementById("nu-supaccess");const supervisorAccess=supAccEl?[...supAccEl.selectedOptions].map(o=>o.value):["All"];
+      const msg=document.getElementById("nu-msg");if(!empId||!name||!pass){if(msg){msg.textContent="⚠ All fields required.";msg.style.color="#ef4444";msg.style.display="block";}return;}const users=await S.get("rcm:users")||[];if(users.find(u=>u.empId.toLowerCase()===empId.toLowerCase())){if(msg){msg.textContent="⚠ Employee ID already exists.";msg.style.color="#ef4444";msg.style.display="block";}return;}
+      await S.set("rcm:users",[...users,{empId,name,password:pass,process,role,access,active:true,overallTarget,supervisorAccess}]);if(msg){msg.textContent="✅ User created!";msg.style.color="#10b981";msg.style.display="block";}setTimeout(()=>load(),1200);
+    };
+    window._toggleU=async id=>{const users=await S.get("rcm:users")||[];await S.set("rcm:users",users.map(u=>u.empId===id?{...u,active:!u.active}:u));load();};
+    window._approvePR=async(i,empId,requestedAt)=>{const el=document.getElementById("pr_"+i);if(!el?.value?.trim()){alert("Enter a new password.");return;}const users=await S.get("rcm:users")||[];await S.set("rcm:users",users.map(u=>u.empId===empId?{...u,password:el.value.trim()}:u));const all=await S.get("rcm:pwreset")||[];await S.set("rcm:pwreset",all.map(r=>r.empId===empId&&r.requestedAt===requestedAt?{...r,status:"resolved"}:r));alert("✅ Approved!");load();};
+  }
+  load();
+}
+
+// ── Edit User ──────────────────────────────────────
+async function openEditUser(empId){
+  const users=await S.get("rcm:users")||[];const u=users.find(x=>x.empId===empId);if(!u)return;
+  const processes=await getProcesses();
+  document.getElementById("edit-orig-id").value=empId;
+  document.getElementById("edit-name").value=u.name||"";
+  document.getElementById("edit-pass").value="";
+  document.getElementById("edit-target").value=u.overallTarget||50;
+  document.getElementById("edit-role").value=u.role||"employee";
+  const procSel=document.getElementById("edit-process");procSel.innerHTML=`<option value="All">All Processes</option>${processes.map(p=>`<option value="${p}">${esc(p)}</option>`).join("")}`;procSel.value=u.process||"All";
+  const supSel=document.getElementById("edit-supaccess");supSel.innerHTML=`<option value="All">All Processes</option>${processes.map(p=>`<option value="${p}">${esc(p)}</option>`).join("")}`;[...supSel.options].forEach(o=>o.selected=(u.supervisorAccess||[]).includes(o.value));
+  document.getElementById("edit-access-pills").innerHTML=ACCESSES.map(opt=>`<label style="display:flex;align-items:center;gap:6px;background:${(u.access||[]).includes(opt)?"#e0e7ff":"#f8fafc"};border:1.5px solid ${(u.access||[]).includes(opt)?"#4f46e5":"#e2e8f0"};border-radius:20px;padding:5px 13px;cursor:pointer;font-size:12px;font-weight:600;color:${(u.access||[]).includes(opt)?"#4f46e5":"#64748b"}"><input type="checkbox" value="${esc(opt)}" class="edit-acc-cb" ${(u.access||[]).includes(opt)?"checked":""} style="display:none"/> ${esc(opt)}</label>`).join("");
+  document.querySelectorAll(".edit-acc-cb").forEach(cb=>{cb.addEventListener("change",function(){const lbl=this.closest("label");if(lbl){lbl.style.background=this.checked?"#e0e7ff":"#f8fafc";lbl.style.borderColor=this.checked?"#4f46e5":"#e2e8f0";lbl.style.color=this.checked?"#4f46e5":"#64748b";}});});
+  document.getElementById("edit-msg").style.display="none";openModal("edit-modal");
+}
+async function saveEditUser(){
+  const origId=document.getElementById("edit-orig-id").value;
+  const name=document.getElementById("edit-name").value.trim();const pass=document.getElementById("edit-pass").value.trim();const process=document.getElementById("edit-process").value;const role=document.getElementById("edit-role").value;const access=[...document.querySelectorAll(".edit-acc-cb:checked")].map(c=>c.value);const overallTarget=parseInt(document.getElementById("edit-target").value)||50;
+  const supSel=document.getElementById("edit-supaccess");const supervisorAccess=[...supSel.selectedOptions].map(o=>o.value);
+  const msg=document.getElementById("edit-msg");if(!name){msg.textContent="⚠ Name cannot be empty.";msg.style.color="#ef4444";msg.style.display="block";return;}
+  const users=await S.get("rcm:users")||[];
+  await S.set("rcm:users",users.map(u=>{if(u.empId!==origId)return u;const nu={...u,name,process,role,access,overallTarget,supervisorAccess};if(pass)nu.password=pass;return nu;}));
+  msg.textContent="✅ User updated!";msg.style.color="#10b981";msg.style.display="block";
+  setTimeout(()=>{closeModal("edit-modal");renderTeam();},1200);
+}
+
+// ── Settings ───────────────────────────────────────
+async function renderSettings(){
+  const settings=await S.get("rcm:settings")||{};
+  const taskCfg=await getTaskConfig();
+  const processes=await getProcesses();
+  const procKey=p=>p.includes("MCD")||p.includes("Medicaid")?"MCD":p.includes("MCR")||p.includes("Medicare")?"MCR":"MCO";
+  const renderTT=key=>`<div style="overflow-x:auto;margin-bottom:6px"><table style="font-size:12px"><thead><tr><th>Task Name</th><th>Target</th><th>Weight (50÷target)</th></tr></thead><tbody>${(taskCfg[key]||[]).map((t,i)=>`<tr style="background:${i%2===0?"white":"#f8fafc"}"><td style="font-weight:600">${esc(t.name)}</td><td><input type="number" value="${t.target}" min="1" style="border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;width:80px;font-size:12px" onchange="window._tc['${key}'][${i}].target=parseInt(this.value)||1;document.getElementById('wd_${key}_${i}').textContent=(50/(parseInt(this.value)||1)).toFixed(3)"/></td><td id="wd_${key}_${i}" style="color:#4f46e5;font-weight:700">${(50/t.target).toFixed(3)}</td></tr>`).join("")}</tbody></table></div>`;
+  setPage(`
+    <div class="g2" style="gap:20px;margin-bottom:20px">
+      <div class="card">
+        ${H2("API Settings","⚙️")}
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:18px;font-size:13px;color:#92400e"><strong>📧 Enable AI email generation:</strong><br/>1. Go to <a href="https://console.anthropic.com" target="_blank" style="color:#4f46e5">console.anthropic.com</a> → API Keys → Create Key<br/>2. Paste below and Save</div>
+        <div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">ANTHROPIC API KEY</div><input class="inp" id="api-key-input" type="password" value="${esc(settings.anthropicKey||"")}" placeholder="sk-ant-api03-..."/></div>
+        <div id="settings-msg" style="font-size:13px;margin-bottom:10px;display:none"></div>
+        <button class="btn btn-primary" onclick="window._saveAPI()" style="padding:11px 28px;justify-content:center">💾 Save API Key</button>
+      </div>
+      <div class="card">
+        ${H2("Task Config — MCO","🎯")}${renderTT("MCO")}
+        <div style="margin-top:14px">${H2("Task Config — MCD","🎯")}</div>${renderTT("MCD")}
+      </div>
+    </div>
+    <div class="card">
+      ${H2("Task Config — MCR (Medicare)","🎯")}${renderTT("MCR")}
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <button class="btn btn-green" onclick="window._saveTasks()" style="padding:11px 28px;justify-content:center">💾 Save Task Config</button>
+        <button class="btn btn-light" onclick="window._resetTasks()" style="padding:11px 20px">↺ Reset Defaults</button>
+      </div>
+      <div id="tc-msg" style="font-size:13px;margin-top:10px;display:none"></div>
+    </div>
+  `);
+  window._tc=JSON.parse(JSON.stringify(taskCfg));
+  window._saveAPI=async()=>{const key=document.getElementById("api-key-input").value.trim();const msg=document.getElementById("settings-msg");if(!key){msg.textContent="⚠ Paste your key.";msg.style.color="#ef4444";msg.style.display="block";return;}const s=await S.get("rcm:settings")||{};await S.set("rcm:settings",{...s,anthropicKey:key});msg.textContent="✅ API key saved!";msg.style.color="#10b981";msg.style.display="block";};
+  window._saveTasks=async()=>{await S.set("rcm:task_config",window._tc);const msg=document.getElementById("tc-msg");msg.textContent="✅ Task config saved!";msg.style.color="#10b981";msg.style.display="block";setTimeout(()=>msg.style.display="none",3000);};
+  window._resetTasks=async()=>{if(!confirm("Reset to factory defaults?"))return;await S.set("rcm:task_config",JSON.parse(JSON.stringify(DEFAULT_TASKS)));renderSettings();};
+}
+
+// ── Employee Detail ────────────────────────────────
+async function showEmpDetail(empId){
+  const users=await S.get("rcm:users")||[];const u=users.find(x=>x.empId===empId);if(!u)return;
+  const taskCfg=await getTaskConfig();
+  const dates=[];let c=today();for(let i=0;i<30;i++){dates.unshift(c);c=addDays(c,-1);}
+  const recs=await Promise.all(dates.map(d=>S.get(`rcm:prod:${empId}:${d}`)));
+  const last7=dates.slice(-7).reverse();
+  const prRecent=await Promise.all(last7.map(d=>S.get(`rcm:prod:${empId}:${d}`)));
+  const myData=dates.map((d,i)=>recs[i]?{date:d,...recs[i]}:null).filter(Boolean);
+  const prods=myData.map(d=>parseFloat(d.prodPct)||0).filter(p=>p>0);
+  const avgProd=avg(prods),totalClaims=myData.reduce((s,d)=>s+(parseFloat(d.total)||0),0);
+  const above100=prods.filter(p=>p>=100).length,below75=prods.filter(p=>p<75).length;
+  const chartData=myData.slice(-14).map(d=>({name:fmtSh(d.date),prod:parseFloat(d.prodPct)||0}));
+  const rc=u.role==="admin"?"#ef4444":u.role==="supervisor"?"#2563eb":"#4f46e5";
+  const isAdmin=currentUser.role==="admin";
+
+  // Build task breakdown table for last 7 days
+  const proc=u.process;const procKey=proc.includes("MCD")||proc.includes("Medicaid")?"MCD":proc.includes("MCR")||proc.includes("Medicare")?"MCR":"MCO";
+  const tasks=taskCfg[procKey]||[];
+
+  document.getElementById("emp-modal-title").textContent=u.name+" — Full Details";
+  document.getElementById("emp-modal-content").innerHTML=`
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding:16px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border-radius:14px">
+      <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,${rc},${rc}88);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:white;flex-shrink:0;overflow:hidden;box-shadow:0 4px 12px ${rc}44">${u.picture?`<img src="${esc(u.picture)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`:u.name.charAt(0).toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-size:20px;font-weight:900;color:#0a1628">${esc(u.name)}</div>
+        <div style="font-size:12px;color:#64748b;margin-top:3px">${esc(u.empId)} · ${esc(u.process)} · Target: ${u.overallTarget||50}/day</div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${badge(u.role==="admin"?"👑 Admin":u.role==="supervisor"?"🔷 Supervisor":"👤 Employee",rc)} ${badge(u.active!==false?"🟢 Active":"🔴 Disabled",u.active!==false?"#10b981":"#ef4444")}</div>
+      </div>
+      ${isAdmin?`<button class="btn" onclick="openEditUser('${esc(u.empId)}')" style="background:#e0e7ff;color:#4f46e5;padding:7px 14px;font-size:12px;border-radius:9px">✏️ Edit</button>`:""}
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+      ${kpi("Avg Prod",avgProd?avgProd+"%":"—",pCol(avgProd),"30 days","📊")}${kpi("Days ≥100%",above100,"#10b981","","🏆")}${kpi("Days <75%",below75,below75>0?"#ef4444":"#94a3b8","","⚠")}${kpi("Total Claims",totalClaims.toFixed(1),"#2563eb","Weighted","📁")}
+    </div>
+    ${chartData.length?`<div style="margin-bottom:18px">${H2("Last 14 Days Productivity","📈")}${barChart(chartData,120)}</div>`:""}
+
+    <!-- Task Breakdown -->
+    <div style="margin-bottom:18px">
+      ${H2("Task Breakdown — Last 7 Days ("+procKey+")","📋")}
+      <div style="overflow-x:auto">
+        <table style="font-size:12px">
+          <thead><tr><th>Date</th><th>Prod%</th><th>Total</th><th>Adj.Target</th><th>DT</th>${tasks.map(t=>`<th style="white-space:nowrap">${esc(t.name)}</th>`).join("")}<th>Remark</th>${isAdmin?`<th>Del</th>`:""}</tr></thead>
+          <tbody>${last7.map((date,i)=>{const pr=prRecent[i];return`<tr style="background:${i%2===0?"white":"#f8fafc"}">
+            <td style="font-weight:600;color:#0a1628;white-space:nowrap">${fmtD(date)}</td>
+            <td style="font-weight:900;color:${pCol(pr?.prodPct)}">${pr?.prodPct?pr.prodPct+"%":"—"}</td>
+            <td style="font-weight:700">${pr?.total?.toFixed(1)||"—"}</td>
+            <td style="color:#94a3b8">${pr?.adjTarget?.toFixed(1)||"—"}</td>
+            <td style="color:#94a3b8">${pr?.downtimeHours?pr.downtimeHours+"h":"—"}</td>
+            ${tasks.map(t=>`<td style="text-align:center;font-weight:${pr?.tasks?.[t.name]?"700":"400"};color:${pr?.tasks?.[t.name]?"#4f46e5":"#cbd5e1"}">${pr?.tasks?.[t.name]||"—"}</td>`).join("")}
+            <td style="color:#94a3b8;max-width:100px;font-size:11px">${pr?.remark?esc(pr.remark.slice(0,35)):"—"}</td>
+            ${isAdmin?`<td><button class="btn btn-danger" onclick="adminDelProd('${esc(empId)}','${date}')" style="padding:3px 7px;font-size:10px;border-radius:6px">🗑</button></td>`:""}
+          </tr>`;}).join("")}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Admin Controls -->
+    ${isAdmin?`<div style="border-top:2px dashed #e2e8f0;padding-top:16px;margin-top:4px">
+      <div style="font-size:12px;font-weight:800;color:#ef4444;margin-bottom:12px">🔐 Admin Controls</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-danger" onclick="adminClearFb('${esc(empId)}')" style="font-size:12px;padding:7px 14px">🗑 Clear All Feedback</button>
+        <button class="btn btn-danger" onclick="adminClearHourly('${esc(empId)}')" style="font-size:12px;padding:7px 14px">🗑 Clear Today Hourly</button>
+        <button class="btn btn-danger" onclick="adminClearCallTracker('${esc(empId)}')" style="font-size:12px;padding:7px 14px">🗑 Clear Today Calls</button>
+      </div>
+    </div>`:""}
+  `;
+  openModal("emp-modal");
+}
+async function adminDelProd(empId,date){if(!confirm(`Delete prod report for ${fmtD(date)}?`))return;await S.set(`rcm:prod:${empId}:${date}`,null);alert("✅ Deleted.");showEmpDetail(empId);}
+async function adminClearFb(empId){if(!confirm("Clear ALL feedback?"))return;const all=await S.get("rcm:feedback")||{};delete all[empId];await S.set("rcm:feedback",all);alert("✅ Cleared.");showEmpDetail(empId);}
+async function adminClearHourly(empId){if(!confirm("Clear today's hourly tracker?"))return;await S.set(`rcm:hourly:${empId}:${today()}`,null);alert("✅ Cleared.");showEmpDetail(empId);}
+async function adminClearCallTracker(empId){if(!confirm("Clear today's call tracker?"))return;await S.set(`rcm:calls:${empId}:${today()}`,null);alert("✅ Cleared.");showEmpDetail(empId);}
+
+// ── Profile & Themes ───────────────────────────────
+async function openProfile(){
+  const users=await S.get("rcm:users")||[];
+  const teamSize=users.filter(u=>u.role==="employee"&&u.active!==false).length;
+  const rc=currentUser.role==="admin"?"#ef4444":currentUser.role==="supervisor"?"#2563eb":"#4f46e5";
+  const prefs=await S.get(`rcm:prefs:${currentUser.empId}`)||{};
+  document.getElementById("profile-content").innerHTML=`
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,${rc},${rc}88);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:white;margin:0 auto 12px;overflow:hidden;box-shadow:0 8px 24px ${rc}44">${currentUser.picture?`<img src="${esc(currentUser.picture)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`:currentUser.name.charAt(0).toUpperCase()}</div>
+      <div style="font-size:18px;font-weight:800;color:#0a1628">${esc(currentUser.name)}</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">${esc(currentUser.empId)} · ${badge(currentUser.role==="admin"?"👑 Admin":currentUser.role==="supervisor"?"🔷 Supervisor":"👤 Employee",rc)}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:20px">
+      ${kpi("Process",currentUser.process||"—","#4f46e5","","🏥")}${kpi("Team",teamSize+" Active","#10b981","Employees","👥")}${kpi("My Target",currentUser.overallTarget||50,"#f59e0b","Claims/day","🎯")}
+    </div>
+    <div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">Update Name</div><input class="inp" id="profile-name" value="${esc(currentUser.name)}"/></div>
+    <div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">Profile Picture URL</div><input class="inp" id="profile-pic-url" value="${esc(currentUser.picture||"")}" placeholder="Paste any image URL…"/></div>
+    <div style="margin-bottom:20px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">New Password (leave blank to keep)</div><input class="inp" id="profile-newpass" type="password" placeholder="Enter new password"/></div>
+
+    <!-- Theme Selector -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">🎨 App Theme / Wallpaper</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        ${THEMES.map(t=>`<div style="text-align:center;cursor:pointer" onclick="window._applyTheme('${t.id}')">
+          <div class="theme-swatch ${(prefs.themeId||"default")===t.id?"active":""}" id="swatch_${t.id}" style="background:${t.bg};width:48px;height:48px;border-radius:12px;border:3px solid ${(prefs.themeId||"default")===t.id?"#4f46e5":"transparent"};box-shadow:0 2px 8px rgba(0,0,0,0.2)"></div>
+          <div style="font-size:10px;color:#64748b;margin-top:4px;font-weight:600">${t.label}</div>
+        </div>`).join("")}
+      </div>
+    </div>
+
+    <div id="profile-msg" style="font-size:13px;margin-bottom:10px;display:none"></div>
+    <button class="btn btn-primary" onclick="saveProfile()" style="width:100%;padding:12px;justify-content:center">💾 Save Profile</button>
+  `;
+  window._applyTheme=async(tid)=>{
+    const theme=THEMES.find(t=>t.id===tid)||THEMES[0];
+    applyTheme(theme);
+    document.querySelectorAll(".theme-swatch").forEach(s=>{s.style.border="3px solid transparent";s.classList.remove("active");});
+    const sw=document.getElementById("swatch_"+tid);if(sw){sw.style.border="3px solid #4f46e5";sw.classList.add("active");}
+    const prefs=await S.get(`rcm:prefs:${currentUser.empId}`)||{};await S.set(`rcm:prefs:${currentUser.empId}`,{...prefs,themeId:tid});
+  };
+  openModal("profile-modal");
+}
+async function saveProfile(){
+  const name=document.getElementById("profile-name").value.trim();const pic=document.getElementById("profile-pic-url").value.trim();const newpass=document.getElementById("profile-newpass").value.trim();const msg=document.getElementById("profile-msg");
+  if(!name){msg.textContent="⚠ Name cannot be empty.";msg.style.color="#ef4444";msg.style.display="block";return;}
+  const users=await S.get("rcm:users")||[];await S.set("rcm:users",users.map(u=>{if(u.empId!==currentUser.empId)return u;const nu={...u,name};if(pic)nu.picture=pic;if(newpass)nu.password=newpass;return nu;}));
+  currentUser={...currentUser,name,picture:pic||currentUser.picture};
+  const av=document.getElementById("user-avatar");const rc=currentUser.role==="admin"?"#ef4444":currentUser.role==="supervisor"?"#2563eb":"#4f46e5";
+  if(pic){av.innerHTML=`<img src="${esc(pic)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`;} else{av.style.background=`linear-gradient(135deg,${rc},${rc}88)`;av.textContent=currentUser.name.charAt(0).toUpperCase();}
+  document.getElementById("user-name-display").textContent=name;
+  msg.textContent="✅ Profile updated!";msg.style.color="#10b981";msg.style.display="block";setTimeout(()=>closeModal("profile-modal"),1400);
+}
+
+// ══ EMPLOYEE APP ════════════════════════════════════
+function loadEmpApp(){
+  const tabs=[{id:"prodreport",label:"📋 Prod Report"},{id:"progress",label:"📊 My Progress"},{id:"feedback",label:"💬 Feedback"}];
+  setTabs(tabs,async id=>{
+    const allFb=await S.get("rcm:feedback")||{};
+    const unread=(allFb[currentUser.empId]||[]).filter(f=>!f.acknowledged).length;
+    document.querySelectorAll(".tab-btn").forEach(b=>{if(b.dataset.id==="feedback")b.textContent=`💬 Feedback${unread>0?` (${unread})`:""}`});
+    if(id==="prodreport")renderProdReport();
+    else if(id==="progress")renderProgress();
+    else if(id==="feedback")renderEmpFeedback();
+  });
+  selTab("prodreport");
+}
+
+// ── Prod Report (merged with hourly + call tracker) ─
+async function renderProdReport(){
+  let selDate=today();
+  const taskCfg=await getTaskConfig();
+  const proc=currentUser.process||"PMB MCO";
+  const procKey=proc.includes("MCD")||proc.includes("Medicaid")?"MCD":proc.includes("MCR")||proc.includes("Medicare")?"MCR":"MCO";
+
+  async function load(){
+    const pr=await S.get(`rcm:prod:${currentUser.empId}:${selDate}`);
+    const bypass=await S.get(`rcm:bypass:${currentUser.empId}:${selDate}`);
+    const hourlyRec=await S.get(`rcm:hourly:${currentUser.empId}:${selDate}`)||{slots:{}};
+    const callRec=await S.get(`rcm:calls:${currentUser.empId}:${selDate}`)||{};
+    const tasks=taskCfg[procKey]||[];
+    const savedCounts=pr?.tasks||{};
+    const savedDT=pr?.downtimeHours||0;
+    const overallTarget=currentUser.overallTarget||50;
+    const counts={};tasks.forEach(t=>{counts[t.name]=savedCounts[t.name]||0;});
+    const{total,adjTarget,prodPct,deficit,deficitPct}=calcProd(tasks,counts,overallTarget,savedDT);
+    const isDeficit=prodPct<100&&!bypass&&pr;
+    const slots=hourlyRec.slots||{};
+    const hourlyTotal=HOURLY_SLOTS.map(s=>parseInt(slots[s])||0).reduce((a,b)=>a+b,0);
+
+    setPage(`
+      ${isDeficit?`<div class="deficit-alert"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><span style="font-size:28px">⚠️</span><div style="flex:1"><div style="font-weight:800;color:#991b1b;font-size:16px">Productivity Deficit Alert</div><div style="color:#b91c1c;font-size:13px;margin-top:4px">You are <strong>${deficit.toFixed(1)} units short</strong> — ${deficitPct.toFixed(1)}% below target. Please work to cover this.</div></div><div style="text-align:center;background:white;border-radius:12px;padding:12px 18px;box-shadow:0 2px 8px rgba(239,68,68,0.2)"><div style="font-size:30px;font-weight:900;color:${pCol(prodPct)}">${prodPct.toFixed(1)}%</div><div style="font-size:11px;color:#94a3b8">Current Prod</div></div></div></div>`:""}
+      ${bypass?`<div class="bypass-note"><strong>🛡 Deficit Bypassed by Admin</strong> — Reason: ${esc(bypass.reason||"Not specified")}</div>`:""}
+
+      <!-- Professional dark header -->
+      <div class="card-dark" style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:18px">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px">Daily Productivity Report</div>
+            <div style="font-size:22px;font-weight:900;color:white;letter-spacing:-0.5px">${esc(currentUser.name)}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">${esc(currentUser.empId)} · ${esc(proc)} · Target: ${overallTarget} · Shift: 8h</div>
+          </div>
+          <input type="date" value="${selDate}" onchange="window._prDate(this.value)" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:9px;padding:8px 13px;color:white;font-size:13px;font-weight:700;cursor:pointer"/>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          ${[{l:"TOTAL",v:total.toFixed(2),c:pCol(prodPct)},{l:"ADJ. TARGET",v:adjTarget.toFixed(1),c:"rgba(255,255,255,0.9)"},{l:"PROD %",v:prodPct.toFixed(1)+"%",c:pCol(prodPct)},{l:"DEFICIT",v:deficit>0?"-"+deficit.toFixed(1):"✅ Met",c:deficit>0?"#fca5a5":"#6ee7b7"}].map(({l,v,c})=>`
+            <div style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px 18px;flex:1;min-width:100px;text-align:center">
+              <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px">${l}</div>
+              <div id="hdr_${l.replace(/[^A-Z]/g,"")}" style="font-size:22px;font-weight:900;color:${c}">${v}</div>
+            </div>`).join("")}
+        </div>
+      </div>
+
+      <!-- ══ HOURLY TRACKER (above downtime) ══ -->
+      <div class="card" style="margin-bottom:18px">
+        ${H2("⏰ Hourly Tracker — "+fmtD(selDate),"⏰")}
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">Shift: <strong>5:30 PM → 2:30 AM</strong> · Select the task and enter your count at each hour end</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
+          ${HOURLY_SLOTS.map((slot,i)=>{const isNight=i>=6;const sv=slots[slot]||"";const st=hourlyRec[`task_${i}`]||"";return`<div class="h-cell ${isNight?"night":""}">
+            <div style="font-size:10px;font-weight:700;color:${isNight?"#7c3aed":"#64748b"};text-transform:uppercase;letter-spacing:0.8px;margin-bottom:5px">${slot}</div>
+            <select id="hts_${i}" style="border:1px solid ${isNight?"#c4b5fd":"#e2e8f0"};border-radius:7px;padding:4px 6px;width:100%;font-size:11px;margin-bottom:5px;background:white" onchange="window._htLive()">
+              <option value="">Task…</option>
+              ${tasks.map(t=>`<option value="${esc(t.name)}" ${st===t.name?"selected":""}>${esc(t.name)}</option>`).join("")}
+            </select>
+            <input type="number" id="ht_${i}" value="${sv}" min="0" placeholder="0" style="border:1px solid ${isNight?"#c4b5fd":"#e2e8f0"};border-radius:7px;padding:6px;width:100%;font-size:15px;font-weight:800;text-align:center;color:${isNight?"#7c3aed":"#0a1628"}" onchange="window._htLive()" onkeyup="window._htLive()"/>
+            <div id="htd_${i}" style="font-size:10px;color:#94a3b8;margin-top:4px">—</div>
+          </div>`;}).join("")}
+        </div>
+        ${hourlyTotal>0?`<div style="background:linear-gradient(135deg,#eef2ff,#f5f3ff);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:16px;margin-bottom:12px"><span style="font-size:24px;font-weight:900;color:#4f46e5">${hourlyTotal}</span><span style="font-size:12px;color:#64748b">Total hourly count · ${HOURLY_SLOTS.filter(s=>slots[s]).length} hours filled</span></div>`:""}
+        <button class="btn btn-primary" onclick="window._saveHourly()" style="padding:10px 24px;font-size:13px;justify-content:center">💾 Save Hourly Data</button>
+        <div id="ht-msg" style="font-size:13px;font-weight:600;margin-top:8px;display:none"></div>
+      </div>
+
+      <!-- ══ DOWNTIME + TASK TABLE ══ -->
+      <div class="card" style="margin-bottom:18px">
+        <!-- Downtime -->
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:20px;padding:16px;background:#f8fafc;border-radius:12px">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">⏱ Downtime (hours)</div>
+            <input type="number" id="pr-downtime" value="${savedDT}" min="0" max="8" step="0.5" style="border:2px solid #4f46e5;border-radius:9px;padding:8px 12px;width:110px;font-size:17px;font-weight:800;color:#4f46e5" onchange="window._prLive()" onkeyup="window._prLive()"/>
+          </div>
+          <div style="flex:1;font-size:12px;color:#64748b;line-height:1.7"><strong>Formula:</strong> Adj. Target = ${overallTarget} × (8 − downtime) ÷ 8<br/><strong>Current:</strong> ${overallTarget} × (8 − ${savedDT}) ÷ 8 = <strong id="adj-calc">${adjTarget.toFixed(1)}</strong></div>
+          <div style="text-align:center;background:white;border-radius:12px;padding:12px 18px;box-shadow:0 2px 10px rgba(0,0,0,0.08)"><div style="font-size:32px;font-weight:900;color:${pCol(prodPct)}" id="pr-live-pct">${prodPct.toFixed(1)}%</div><div style="font-size:10px;color:#94a3b8">Live Prod %</div></div>
+        </div>
+
+        <!-- Task Table -->
+        ${H2("Task Entry — "+procKey,"📋")}
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Task Name</th><th>Individual Target</th><th>Weight</th><th style="width:110px">Count</th><th>Contribution</th></tr></thead>
+            <tbody id="pr-task-rows">
+              ${tasks.map((t,i)=>{const cnt=savedCounts[t.name]||0;const wt=(50/t.target).toFixed(3);const contrib=(cnt*(50/t.target)).toFixed(2);return`<tr style="background:${i%2===0?"white":"#f8fafc"}">
+                <td style="font-weight:600;color:#0a1628">${esc(t.name)}</td>
+                <td style="color:#4f46e5;font-weight:700">${t.target}</td>
+                <td style="color:#94a3b8;font-size:12px">${wt}</td>
+                <td><input type="number" id="prt_${i}" value="${cnt}" min="0" style="border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 10px;width:100px;font-size:14px;font-weight:700;color:#0a1628" onchange="window._prLive()" onkeyup="window._prLive()"/></td>
+                <td style="font-weight:700;color:#4f46e5" id="pc_${i}">${contrib}</td>
+              </tr>`;}).join("")}
+            </tbody>
+            <tfoot><tr style="background:linear-gradient(135deg,#eef2ff,#f0f4ff);border-top:2px solid #4f46e5">
+              <td colspan="3" style="font-weight:800;color:#0a1628;padding:11px 13px">TOTAL (weighted)</td>
+              <td colspan="2" style="font-weight:900;font-size:18px;color:${pCol(prodPct)};padding:11px 13px" id="pr-total-row">${total.toFixed(2)}</td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══ REMARK + QUALITY ══ -->
+      <div class="g2" style="margin-bottom:18px">
+        <div class="card">
+          <div style="font-size:10px;font-weight:700;color:${isDeficit?"#b45309":"#94a3b8"};letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">${isDeficit?"⚠️ ":""}Remark / Deficit Reason</div>
+          <textarea class="inp" id="pr-remark" rows="4" placeholder="${isDeficit?"Explain: VDI issues, DDE downtime, complex claims, TAT pressure, physician tasks…":"Highlights or context for today"}" style="resize:vertical;border-color:${isDeficit?"#fcd34d":"#e2e8f0"};background:${isDeficit?"#fffbeb":"white"}">${esc(pr?.remark||"")}</textarea>
+        </div>
+        <div class="card">
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">⭐ Yesterday's Quality %</div>
+          <input type="number" class="inp" id="pr-quality" placeholder="e.g. 96.5" value="${esc(pr?.qualScore||"")}" style="margin-bottom:14px"/>
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">💬 Action Plan / Recovery</div>
+          <textarea class="inp" id="pr-notes" rows="3" placeholder="e.g. Will cover deficit by EOW…" style="resize:vertical">${esc(pr?.notes||"")}</textarea>
+        </div>
+      </div>
+
+      <!-- ══ CALL TRACKER ══ -->
+      <div class="card" style="margin-bottom:18px">
+        ${H2("📞 Call Tracker — "+fmtD(selDate),"📞")}
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:16px">Track your daily calls to monitor calling vs non-calling productivity</div>
+        <div class="g3" style="margin-bottom:16px">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Total Calls Made</div>
+            <input type="number" class="inp" id="ct-calls" placeholder="e.g. 45" value="${esc(callRec.totalCalls||"")}" style="font-size:16px;font-weight:700"/>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Time Spent on Calls (hrs)</div>
+            <input type="number" class="inp" id="ct-hours" placeholder="e.g. 3.5" step="0.5" value="${esc(callRec.hoursOnCalls||"")}" style="font-size:16px;font-weight:700"/>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Call Type</div>
+            <select class="inp" id="ct-type">
+              <option value="AR Calling" ${callRec.callType==="AR Calling"?"selected":""}>AR Calling</option>
+              <option value="Insurance Calling" ${callRec.callType==="Insurance Calling"?"selected":""}>Insurance Calling</option>
+              <option value="Patient Calling" ${callRec.callType==="Patient Calling"?"selected":""}>Patient Calling</option>
+              <option value="Mixed" ${callRec.callType==="Mixed"?"selected":""}>Mixed</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:16px">
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Calling Notes / Observations</div>
+          <textarea class="inp" id="ct-notes" rows="2" placeholder="e.g. Mostly denials on aging AR, connected rate low due to voicemail…" style="resize:vertical">${esc(callRec.notes||"")}</textarea>
+        </div>
+        ${callRec.totalCalls?`<div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;gap:20px;flex-wrap:wrap">
+          <div><span style="font-size:22px;font-weight:900;color:#0284c7">${callRec.totalCalls}</span><span style="font-size:11px;color:#64748b;margin-left:6px">calls</span></div>
+          <div><span style="font-size:22px;font-weight:900;color:#7c3aed">${callRec.hoursOnCalls||"—"}h</span><span style="font-size:11px;color:#64748b;margin-left:6px">on calls</span></div>
+          ${callRec.hoursOnCalls&&callRec.totalCalls?`<div><span style="font-size:22px;font-weight:900;color:#10b981">${(callRec.totalCalls/(callRec.hoursOnCalls||1)).toFixed(1)}</span><span style="font-size:11px;color:#64748b;margin-left:6px">calls/hr</span></div>`:""}
+        </div>`:""}
+        <button class="btn btn-primary" onclick="window._saveCalls()" style="padding:10px 24px;font-size:13px;justify-content:center">💾 Save Call Data</button>
+        <div id="ct-msg" style="font-size:13px;font-weight:600;margin-top:8px;display:none"></div>
+      </div>
+
+      <!-- Save Prod Report -->
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px">
+        <button class="btn btn-primary" onclick="window._savePR()" style="padding:12px 32px;font-size:15px;justify-content:center">💾 Save Prod Report</button>
+        ${pr?`<button class="btn" onclick="window._exportPR()" style="background:#f0fdf4;color:#10b981;padding:12px 20px;font-size:13px;justify-content:center">📥 Export CSV</button>`:""}
+        <div id="pr-save-msg" style="font-size:13px;font-weight:600;display:none"></div>
+      </div>
+    `);
+
+    const tasksCopy=tasks;const tgt=overallTarget;
+    window._prLive=()=>{
+      const dt=parseFloat(document.getElementById("pr-downtime")?.value)||0;
+      const cnt={};tasksCopy.forEach((t,i)=>{cnt[t.name]=parseFloat(document.getElementById(`prt_${i}`)?.value)||0;});
+      const res=calcProd(tasksCopy,cnt,tgt,dt);
+      tasksCopy.forEach((t,i)=>{const el=document.getElementById(`pc_${i}`);if(el)el.textContent=(cnt[t.name]*(50/t.target)).toFixed(2);});
+      const totEl=document.getElementById("pr-total-row");if(totEl){totEl.textContent=res.total.toFixed(2);totEl.style.color=pCol(res.prodPct);}
+      const pctEl=document.getElementById("pr-live-pct");if(pctEl){pctEl.textContent=res.prodPct.toFixed(1)+"%";pctEl.style.color=pCol(res.prodPct);}
+      const adjEl=document.getElementById("adj-calc");if(adjEl)adjEl.textContent=res.adjTarget.toFixed(1);
+    };
+
+    window._htLive=()=>{
+      const tots=HOURLY_SLOTS.map((_,i)=>parseInt(document.getElementById(`ht_${i}`)?.value)||0);
+      HOURLY_SLOTS.forEach((_,i)=>{const el=document.getElementById(`htd_${i}`);if(!el)return;if(i>0&&tots[i]>0&&tots[i-1]>0){const d=tots[i]-tots[i-1];el.textContent=(d>=0?"+":"")+d;el.style.color=d>=0?"#10b981":"#ef4444";}else el.textContent="—";});
+    };
+
+    window._prDate=v=>{selDate=v;load();};
+
+    window._saveHourly=async()=>{
+      const newSlots={};const taskMap={};
+      HOURLY_SLOTS.forEach((s,i)=>{const v=document.getElementById(`ht_${i}`)?.value;const t=document.getElementById(`hts_${i}`)?.value;if(v){newSlots[s]=parseInt(v)||0;if(t)taskMap[`task_${i}`]=t;}});
+      await S.set(`rcm:hourly:${currentUser.empId}:${selDate}`,{slots:newSlots,...taskMap,savedAt:new Date().toISOString()});
+      const msg=document.getElementById("ht-msg");const total=Object.values(newSlots).reduce((a,b)=>a+b,0);
+      if(msg){msg.textContent=`✅ Hourly data saved! Total: ${total} counts`;msg.style.color="#10b981";msg.style.display="block";}
+      setTimeout(()=>load(),1200);
+    };
+
+    window._saveCalls=async()=>{
+      const totalCalls=parseInt(document.getElementById("ct-calls")?.value)||0;const hoursOnCalls=parseFloat(document.getElementById("ct-hours")?.value)||0;const callType=document.getElementById("ct-type")?.value||"";const notes=document.getElementById("ct-notes")?.value||"";
+      await S.set(`rcm:calls:${currentUser.empId}:${selDate}`,{totalCalls,hoursOnCalls,callType,notes,savedAt:new Date().toISOString()});
+      const msg=document.getElementById("ct-msg");if(msg){msg.textContent=`✅ Call data saved! ${totalCalls} calls · ${hoursOnCalls}h`;msg.style.color="#10b981";msg.style.display="block";}
+      setTimeout(()=>load(),1200);
+    };
+
+    window._savePR=async()=>{
+      const dt=parseFloat(document.getElementById("pr-downtime")?.value)||0;const cnt={};tasks.forEach((t,i)=>{cnt[t.name]=parseFloat(document.getElementById(`prt_${i}`)?.value)||0;});
+      const res=calcProd(tasks,cnt,overallTarget,dt);const remark=document.getElementById("pr-remark")?.value||"";const qualScore=document.getElementById("pr-quality")?.value||"";const notes=document.getElementById("pr-notes")?.value||"";
+      await S.set(`rcm:prod:${currentUser.empId}:${selDate}`,{tasks:cnt,downtimeHours:dt,process:procKey,...res,overallTarget,remark,qualScore,notes,submittedAt:new Date().toISOString()});
+      const day=await S.get(`rcm:day:${selDate}`)||{};
+      day[currentUser.empId]={empId:currentUser.empId,name:currentUser.name,process:currentUser.process,total:res.total.toFixed(1),target:overallTarget,prodPct:res.prodPct.toFixed(1),downtime:dt,qualScore,reason:remark,notes,submittedAt:new Date().toISOString()};
+      await S.set(`rcm:day:${selDate}`,day);
+      const msg=document.getElementById("pr-save-msg");if(msg){msg.textContent=`✅ Saved! Prod: ${res.prodPct.toFixed(1)}% ${res.deficit>0?"⚠ Deficit: "+res.deficit.toFixed(1):"✅ Target Met!"}`;msg.style.color=res.deficit>0?"#ef4444":"#10b981";msg.style.display="block";}
+      if(res.prodPct<100&&!bypass)document.getElementById("deficit-header-alert").style.display="block";
+      else document.getElementById("deficit-header-alert").style.display="none";
+      setTimeout(()=>load(),1200);
+    };
+
+    window._exportPR=async()=>{
+      if(!pr)return;
+      const rows=tasks.map(t=>[t.name,t.target,(50/t.target).toFixed(3),pr.tasks?.[t.name]||0,((pr.tasks?.[t.name]||0)*(50/t.target)).toFixed(2)]);
+      const callR=await S.get(`rcm:calls:${currentUser.empId}:${selDate}`)||{};
+      const htR=await S.get(`rcm:hourly:${currentUser.empId}:${selDate}`)||{slots:{}};
+      const extraRows=[["","","","",""],["TOTAL","","","",pr.total?.toFixed(2)],["Adj. Target","","","",pr.adjTarget?.toFixed(2)],["Prod %","","","",pr.prodPct?.toFixed(1)+"%"],["Deficit","","","",pr.deficit?.toFixed(2)],["Downtime(h)","","","",pr.downtimeHours],["Remark","","","",pr.remark||""],["Quality %","","","",pr.qualScore||""],["","","","",""],["CALL TRACKER","","","",""],["Total Calls","","","",callR.totalCalls||0],["Hours on Calls","","","",callR.hoursOnCalls||0],["Call Type","","","",callR.callType||""],["Call Notes","","","",callR.notes||""],["","","","",""],["HOURLY TRACKER","","","",""],...HOURLY_SLOTS.map(s=>[s,"","","",htR.slots?.[s]||0])];extraRows.forEach(r=>rows.push(r));
+      dlCSV(["Task","Individual Target","Weight","Count","Contribution"],rows,`FullReport_${currentUser.empId}_${selDate}.csv`);
+    };
+  }
+  load();
+}
+
+// ── Progress ───────────────────────────────────────
+async function renderProgress(){
+  let wStart=getMon(today()),year=new Date().getFullYear(),month=new Date().getMonth()+1;
+  async function load(){
+    const wd=wDays(wStart),md=mDays(year,month);
+    const[wr,mr,wcr]=await Promise.all([Promise.all(wd.map(d=>S.get(`rcm:prod:${currentUser.empId}:${d}`))),Promise.all(md.map(d=>S.get(`rcm:prod:${currentUser.empId}:${d}`))),Promise.all(wd.map(d=>S.get(`rcm:calls:${currentUser.empId}:${d}`)))]);
+    const wData=wd.map((d,i)=>{const s=wr[i];return{date:fmtSh(d),prod:s?.prodPct?parseFloat(s.prodPct):null,total:s?.total||null,adjTarget:s?.adjTarget||null};});
+    const mData=md.map((d,i)=>{const s=mr[i];return{date:fmtSh(d),prod:s?.prodPct?parseFloat(s.prodPct):null};});
+    const activeW=wData.filter(d=>d.prod!==null);const avgWProd=avg(activeW.map(d=>d.prod));const totalW=activeW.reduce((s,d)=>s+(parseFloat(d.total)||0),0);const targetW=activeW.reduce((s,d)=>s+(parseFloat(d.adjTarget)||currentUser.overallTarget||50),0);const deficit=+(targetW-totalW).toFixed(1);
+    const totalCalls=wcr.reduce((s,r)=>s+(r?.totalCalls||0),0);const totalCallHrs=wcr.reduce((s,r)=>s+(r?.hoursOnCalls||0),0);
+    setPage(`
+      <div class="card" style="padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-weight:700;color:#0a1628;font-size:12px">📅 Week:</span>
+        <button class="btn btn-light" onclick="window._wk(-1)">←</button>
+        <span style="flex:1;text-align:center;font-weight:700;color:#0a1628;font-size:13px">${fmtD(wStart)} – ${fmtD(addDays(wStart,4))}</span>
+        <button class="btn btn-light" onclick="window._wk(1)">→</button>
+        <button class="btn btn-light" onclick="load()">↺</button>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        ${kpi("Week Avg",avgWProd?avgWProd+"%":"—",pCol(avgWProd),"","📊")}${kpi("Total",totalW.toFixed(1),"#4f46e5","Weighted","📁")}${kpi("Target",targetW.toFixed(1),"#94a3b8","Adj. total","🎯")}${kpi("Deficit/Extra",deficit>0?"-"+deficit:deficit===0?"✅ Met":"+"+Math.abs(deficit),deficit>0?"#ef4444":"#10b981",deficit>0?"Below target":"")}${kpi("Calls",totalCalls,"#2563eb","This week","📞")}${kpi("Call Hrs",totalCallHrs.toFixed(1)+"h","#7c3aed","On calls","⏱")}
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        ${H2("My Daily Productivity This Week","📊")}
+        ${barChart(wData.filter(d=>d.prod!==null).map(d=>({name:d.date,prod:d.prod})))||`<div style="color:#94a3b8;text-align:center;padding:30px">No data submitted this week</div>`}
+      </div>
+      <div class="card" style="padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-weight:700;color:#0a1628;font-size:12px">🗓 Month:</span>
+        <button class="btn btn-light" onclick="window._mo(-1)">←</button>
+        <span style="flex:1;text-align:center;font-weight:700;color:#0a1628">${MONTHS[month-1]} ${year}</span>
+        <button class="btn btn-light" onclick="window._mo(1)">→</button>
+        <button class="btn btn-light" onclick="load()">↺</button>
+      </div>
+      <div class="card">
+        ${H2("Monthly Trend — "+MONTHS[month-1]+" "+year,"📈")}
+        ${mData.some(d=>d.prod!==null)?barChart(mData.filter(d=>d.prod!==null).map(d=>({name:d.date,prod:d.prod}))):`<div style="color:#94a3b8;text-align:center;padding:30px">No data this month</div>`}
+      </div>
+    `);
+    window._wk=n=>{wStart=addDays(wStart,n*7);load();};window._mo=n=>{if(n<0){if(month===1){month=12;year--;}else month--;}else{if(month===12){month=1;year++;}else month++;}load();};
+  }
+  load();
+}
+
+// ── Employee Feedback ──────────────────────────────
+async function renderEmpFeedback(){
+  const allFb=await S.get("rcm:feedback")||{};
+  const feedback=(allFb[currentUser.empId]||[]).slice().reverse();
+  const unread=feedback.filter(f=>!f.acknowledged).length;
+  setPage(`
+    ${H2("Feedback from Your Team Lead","💬")}
+    ${unread>0?`<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 16px;margin-bottom:16px;font-size:13px;font-weight:600;color:#92400e">📬 You have ${unread} unread feedback message${unread>1?"s":""}. Please acknowledge below.</div>`:""}
+    ${feedback.length===0?`<div class="card" style="text-align:center;padding:50px;color:#94a3b8"><div style="font-size:38px;margin-bottom:10px">💬</div><div style="font-size:14px;font-weight:700;color:#0a1628">No feedback yet</div></div>`:
+    feedback.map(f=>`<div class="card" style="margin-bottom:14px;border:2px solid ${f.acknowledged?"#6ee7b7":"#fde68a"};background:${f.acknowledged?"#f0fdf4":"#fffbeb"}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div><div style="font-weight:800;color:#0a1628;font-size:14px">📅 ${fmtD(f.date)}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">${new Date(f.sentAt).toLocaleString("en-IN",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</div></div>
+        ${badge(f.acknowledged?"✅ Acknowledged":"⚠ Action Required",f.acknowledged?"#10b981":"#f97316")}
+      </div>
+      <div style="font-size:14px;color:#1e293b;line-height:1.75;background:white;border-radius:10px;padding:14px 16px;margin-bottom:${f.acknowledged?0:14}px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">${esc(f.text)}</div>
+      ${!f.acknowledged?`<button class="btn btn-green" onclick="ackFb(${f.id})" style="padding:9px 22px;justify-content:center">✅ I Acknowledge This Feedback</button>`:""}
+    </div>`).join("")}
+  `);
+}
+async function ackFb(id){const all=await S.get("rcm:feedback")||{};all[currentUser.empId]=(all[currentUser.empId]||[]).map(f=>f.id===id?{...f,acknowledged:true,ackedAt:new Date().toISOString()}:f);await S.set("rcm:feedback",all);renderEmpFeedback();}
+</script>
+</body>
+</html>
