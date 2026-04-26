@@ -155,10 +155,10 @@ tr:hover td{background:#fafbff}
   <div class="g3" style="margin-bottom:14px">
     <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Full Name</div><input class="inp" id="edit-name"/></div>
     <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Password</div><input class="inp" id="edit-pass" placeholder="Leave blank to keep"/></div>
-    <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Process</div><select class="inp" id="edit-process"><option value="All">All Processes</option></select></div>
+    <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Process (Ctrl+Click for multiple)</div><select class="inp" id="edit-process" multiple style="height:80px"><option value="All">All Processes</option></select></div>
     <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Role</div>
-      <select class="inp" id="edit-role"><option value="employee">👤 Employee</option><option value="supervisor">🔷 Supervisor</option><option value="admin">👑 Admin</option></select></div>
-    <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Overall Target</div><input class="inp" id="edit-target" type="number" placeholder="50"/></div>
+      <select class="inp" id="edit-role" onchange="const etw=document.getElementById('edit-target-wrap');if(etw)etw.style.display=this.value==='employee'?'':'none'"><option value="employee">👤 Employee</option><option value="supervisor">🔷 Supervisor</option><option value="admin">👑 Admin</option></select></div>
+    <div id="edit-target-wrap"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Overall Target</div><input class="inp" id="edit-target" type="number" placeholder="50"/></div>
     <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Supervisor Access To</div><select class="inp" id="edit-supaccess" multiple style="height:80px"><option value="All">All Processes</option></select></div>
   </div>
   <div style="margin-bottom:16px"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Access Permissions</div>
@@ -201,7 +201,14 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const MONTHS  = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const ACCESSES= ["Prod Report","View Own Progress","View Team Progress","Generate Email","Send Feedback","Manage Users","View Reports","Hourly Tracker","Call Tracker"];
 const SHIFT_H = 8;
-const HOURLY_SLOTS = ["5:30 PM","6:30 PM","7:30 PM","8:30 PM","9:30 PM","10:30 PM","11:30 PM","12:30 AM","1:30 AM","2:30 AM"];
+const HOURLY_SLOTS = ["6:30 PM","7:30 PM","8:30 PM","9:30 PM","10:30 PM","11:30 PM","12:30 AM","1:30 AM","2:30 AM"];
+
+// ── Multi-process helpers ──────────────────────────
+const getProcs=u=>Array.isArray(u.process)?u.process:(u.process?[u.process]:["PMB MCO"]);
+const procDisplay=u=>getProcs(u).join(", ");
+const procIncludes=(u,filterProc)=>{if(!filterProc||filterProc==="ALL")return true;const ps=getProcs(u);return ps.includes("All")||ps.includes(filterProc);};
+const getProcKey=p=>p.includes("MCD")||p.includes("Medicaid")?"MCD":p.includes("MCR")||p.includes("Medicare")?"MCR":"MCO";
+const getTasksForUser=(u,taskCfg)=>{const procs=getProcs(u).filter(p=>p!=="All");if(!procs.length)procs.push("PMB MCO");const seen=new Set();const out=[];procs.forEach(p=>{const key=getProcKey(p);(taskCfg[key]||[]).forEach(t=>{if(!seen.has(t.name)){seen.add(t.name);out.push(t);}});});return out;};
 
 const THEMES = [
   {id:"default",  label:"Midnight",     bg:"linear-gradient(135deg,#0f172a 0%,#1e293b 100%)",       topbar:"rgba(10,22,40,0.95)"},
@@ -407,8 +414,8 @@ async function renderToday(){
     // Supervisor sees only their assigned processes
     const supProcs=currentUser.role==="supervisor"?(currentUser.supervisorAccess||[]).filter(p=>p!=="All"):null;
     let members=allUsers.filter(u=>u.role==="employee"&&u.active!==false);
-    if(filterProc!=="ALL")members=members.filter(u=>u.process===filterProc||u.process==="All");
-    if(supProcs&&!supProcs.includes("All"))members=members.filter(u=>supProcs.includes(u.process));
+    if(filterProc!=="ALL")members=members.filter(u=>procIncludes(u,filterProc));
+    if(supProcs&&!supProcs.includes("All"))members=members.filter(u=>getProcs(u).some(p=>supProcs.includes(p)));
     const processes=await getProcesses();
     const dayData=await S.get(`rcm:day:${date}`)||{};
     const agents=Object.values(dayData).filter(a=>a&&a.name);
@@ -448,7 +455,7 @@ async function renderToday(){
           <thead><tr><th>Employee</th><th>Process</th><th>Status</th><th>Total</th><th>Target</th><th>Prod %</th><th>Quality</th><th>DT(h)</th><th>Reason</th><th>Time</th></tr></thead>
           <tbody>${members.map((u,i)=>{const d=dayData[u.empId];const pc=d?pCol(d.prodPct):"#94a3b8";return`<tr style="background:${i%2===0?"white":"#fafbff"}">
             <td><div style="font-weight:700;color:#0a1628;cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="showEmpDetail('${esc(u.empId)}')">${esc(u.name)}</div><div style="font-size:10px;color:#94a3b8;font-family:monospace">${esc(u.empId)}</div></td>
-            <td style="color:#64748b;font-size:12px">${esc(u.process)}</td>
+            <td style="color:#64748b;font-size:12px">${esc(procDisplay(u))}</td>
             <td>${d?badge("✅ Done","#10b981"):badge("⏳ Pending","#f97316")}</td>
             <td style="font-weight:600">${d?.total||"—"}</td><td style="color:#94a3b8">${d?.target||"—"}</td>
             <td style="font-weight:900;color:${pc};font-size:15px">${d?.prodPct?d.prodPct+"%":"—"}</td>
@@ -487,8 +494,8 @@ async function renderAdminProdMonitor(){
     const processes=await getProcesses();
     let members=allUsers.filter(u=>u.role==="employee"&&u.active!==false);
     const supProcs=currentUser.role==="supervisor"?(currentUser.supervisorAccess||[]).filter(p=>p!=="All"):null;
-    if(supProcs&&!supProcs.includes("All"))members=members.filter(u=>supProcs.includes(u.process));
-    if(filterProc!=="ALL")members=members.filter(u=>u.process===filterProc||u.process==="All");
+    if(supProcs&&!supProcs.includes("All"))members=members.filter(u=>getProcs(u).some(p=>supProcs.includes(p)));
+    if(filterProc!=="ALL")members=members.filter(u=>procIncludes(u,filterProc));
     const records=await Promise.all(members.map(u=>S.get(`rcm:prod:${u.empId}:${selDate}`)));
     const bypasses=await Promise.all(members.map(u=>S.get(`rcm:bypass:${u.empId}:${selDate}`)));
     setPage(`
@@ -509,7 +516,7 @@ async function renderAdminProdMonitor(){
           <thead><tr><th>Employee</th><th>Process</th><th>Status</th><th>Total</th><th>Adj.Target</th><th>Prod %</th><th>Deficit</th><th>Downtime</th><th>Remark</th><th>Action</th></tr></thead>
           <tbody>${members.map((u,i)=>{const pr=records[i];const bp=bypasses[i];const isBP=!!bp;const prodPct=isBP?100:(pr?.prodPct||0);const deficit=isBP?0:(pr?.deficit||0);return`<tr style="background:${i%2===0?"white":"#fafbff"}">
             <td><div style="font-weight:700;color:#0a1628;cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="showEmpDetail('${esc(u.empId)}')">${esc(u.name)}</div><div style="font-size:10px;color:#94a3b8;font-family:monospace">${esc(u.empId)}</div></td>
-            <td style="color:#64748b;font-size:12px">${esc(u.process)}</td>
+            <td style="color:#64748b;font-size:12px">${esc(procDisplay(u))}</td>
             <td>${pr?badge("✅ Yes","#10b981"):badge("⏳ No","#f97316")}</td>
             <td style="font-weight:700">${pr?pr.total.toFixed(1):"—"}</td>
             <td style="color:#94a3b8">${pr?pr.adjTarget.toFixed(1):"—"}</td>
@@ -541,8 +548,8 @@ async function renderAdminHourlyMonitor(){
     const processes=await getProcesses();
     let members=allUsers.filter(u=>u.role==="employee"&&u.active!==false);
     const supProcs=currentUser.role==="supervisor"?(currentUser.supervisorAccess||[]).filter(p=>p!=="All"):null;
-    if(supProcs&&!supProcs.includes("All"))members=members.filter(u=>supProcs.includes(u.process));
-    if(filterProc!=="ALL")members=members.filter(u=>u.process===filterProc||u.process==="All");
+    if(supProcs&&!supProcs.includes("All"))members=members.filter(u=>getProcs(u).some(p=>supProcs.includes(p)));
+    if(filterProc!=="ALL")members=members.filter(u=>procIncludes(u,filterProc));
     if(searchQ)members=members.filter(u=>u.name.toLowerCase().includes(searchQ.toLowerCase())||u.empId.toLowerCase().includes(searchQ.toLowerCase()));
     const hourlyRecs=await Promise.all(members.map(u=>S.get(`rcm:hourly:${u.empId}:${selDate}`)));
     setPage(`
@@ -563,7 +570,7 @@ async function renderAdminHourlyMonitor(){
           <thead><tr><th>Employee</th><th>Process</th>${HOURLY_SLOTS.map(s=>`<th>${s}</th>`).join("")}<th>Total</th><th>Status</th></tr></thead>
           <tbody>${members.map((u,i)=>{const hr=hourlyRecs[i];const slots=hr?.slots||{};const totals=HOURLY_SLOTS.map(s=>parseInt(slots[s])||0);const grand=totals.reduce((a,b)=>a+b,0);return`<tr style="background:${i%2===0?"white":"#fafbff"}">
             <td><div style="font-weight:700;color:#0a1628;cursor:pointer;text-decoration:underline;text-underline-offset:2px" onclick="showEmpDetail('${esc(u.empId)}')">${esc(u.name)}</div><div style="font-size:10px;color:#94a3b8;font-family:monospace">${esc(u.empId)}</div></td>
-            <td style="color:#64748b;font-size:12px">${esc(u.process)}</td>
+            <td style="color:#64748b;font-size:12px">${esc(procDisplay(u))}</td>
             ${HOURLY_SLOTS.map(s=>`<td style="text-align:center;font-weight:${slots[s]?"700":"400"};color:${slots[s]?"#4f46e5":"#cbd5e1"}">${slots[s]||"—"}</td>`).join("")}
             <td style="font-weight:900;color:#4f46e5;font-size:15px">${grand||"—"}</td>
             <td>${hr?badge("✅ Filed","#10b981"):badge("⏳ Pending","#f97316")}</td>
@@ -584,7 +591,7 @@ async function renderSummary(type){
     const processes=await getProcesses();
     let users=allUsers.filter(u=>u.role==="employee"&&u.active!==false);
     const supProcs=currentUser.role==="supervisor"?(currentUser.supervisorAccess||[]).filter(p=>p!=="All"):null;
-    if(supProcs&&!supProcs.includes("All"))users=users.filter(u=>supProcs.includes(u.process));
+    if(supProcs&&!supProcs.includes("All"))users=users.filter(u=>getProcs(u).some(p=>supProcs.includes(p)));
     const dates=type==="weekly"?wDays(wStart):mDays(year,month);
     const recs=(await Promise.all(dates.map(d=>S.get(`rcm:day:${d}`).then(r=>r?{date:d,...r}:null)))).filter(Boolean);
     const map={};
@@ -613,7 +620,7 @@ async function renderSummary(type){
         <tbody>${fStats.map((a,i)=>`<tr style="background:${i===0?"#fffbeb":i%2===0?"white":"#fafbff"}">
           <td style="font-weight:800;color:${i===0?"#f59e0b":"#94a3b8"};font-size:${i===0?16:13}px">${i===0?"🏆":"#"+(i+1)}</td>
           <td><div style="font-weight:700;color:#0a1628;cursor:pointer;text-decoration:underline" onclick="showEmpDetail('${esc(a.empId)}')">${esc(a.name)}</div><div style="font-size:10px;color:#94a3b8;font-family:monospace">${esc(a.empId)}</div></td>
-          <td style="color:#64748b;font-size:11px">${esc(a.process)}</td><td style="text-align:center;font-weight:600">${a.daysWorked}</td>
+          <td style="color:#64748b;font-size:11px">${esc(Array.isArray(a.process)?a.process.join(", "):a.process||"")}</td><td style="text-align:center;font-weight:600">${a.daysWorked}</td>
           <td style="font-weight:900;color:${pCol(a.avgProd)};font-size:16px">${a.avgProd}%</td>
           <td style="text-align:center">${badge(a.above100,"#10b981")}</td><td style="text-align:center">${badge(a.below75,a.below75>0?"#ef4444":"#94a3b8")}</td>
           <td style="text-align:center;font-weight:600">${a.totalClaims}</td><td style="font-weight:700;color:${a.avgQual>0?pCol(a.avgQual):"#94a3b8"}">${a.avgQual>0?a.avgQual+"%":"—"}</td>
@@ -647,7 +654,7 @@ async function renderAdminFeedback(){
   async function load(){
     const allFb=await S.get("rcm:feedback")||{};
     let users=allUsers.filter(u=>u.role==="employee"&&u.active!==false);
-    if(filterProc!=="ALL")users=users.filter(u=>u.process===filterProc);
+    if(filterProc!=="ALL")users=users.filter(u=>procIncludes(u,filterProc));
     const unack=Object.values(allFb).flat().filter(f=>!f.acknowledged).length;
     const curFb=selU?(allFb[selU]||[]).slice().reverse():[];
     setPage(`
@@ -685,7 +692,7 @@ async function renderTeam(){
     const pwReqs=(await S.get("rcm:pwreset")||[]).filter(r=>r.status==="pending");
     let processes=await getProcesses();
     let filtered=users.filter(u=>u.role==="employee"||u.role==="supervisor");
-    if(filterProc!=="ALL")filtered=filtered.filter(u=>u.process===filterProc||u.process==="All");
+    if(filterProc!=="ALL")filtered=filtered.filter(u=>procIncludes(u,filterProc));
     if(searchQ)filtered=filtered.filter(u=>u.name.toLowerCase().includes(searchQ.toLowerCase())||u.empId.toLowerCase().includes(searchQ.toLowerCase()));
     setPage(`
       ${pwReqs.length>0?`<div style="background:#fff7ed;border:2px solid rgba(249,115,22,0.3);border-radius:14px;padding:20px;margin-bottom:20px">${H2(`Password Reset Requests (${pwReqs.length})`,"🔔")}${pwReqs.map((r,i)=>`<div class="row" style="background:white;border-radius:10px;padding:12px 14px;margin-bottom:8px;border:1px solid #fed7aa"><div style="flex:1"><div style="font-weight:800;color:#0a1628">${esc(r.empId)}</div><div style="font-size:11px;color:#94a3b8">${esc(r.reason||"No reason")} · ${new Date(r.requestedAt).toLocaleString("en-IN")}</div></div><input class="inp" id="pr_${i}" placeholder="Set new password" style="width:180px"/><button class="btn btn-green" onclick="window._approvePR(${i},'${esc(r.empId)}','${esc(r.requestedAt)}')" style="padding:8px 14px;font-size:12px">✅ Approve</button></div>`).join("")}</div>`:""}
@@ -712,11 +719,11 @@ async function renderTeam(){
           <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Employee ID</div><input class="inp" id="nu-empid" placeholder="EMP001"/></div>
           <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Full Name</div><input class="inp" id="nu-name" placeholder="Agent Name"/></div>
           <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Password</div><input class="inp" id="nu-pass" placeholder="Set password"/></div>
-          <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Process</div>
-            <select class="inp" id="nu-proc"><option value="All">All Processes</option>${processes.map(p=>`<option>${esc(p)}</option>`).join("")}</select></div>
+          <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Process (Ctrl+Click for multiple)</div>
+            <select class="inp" id="nu-proc" multiple style="height:80px"><option value="All">All Processes</option>${processes.map(p=>`<option>${esc(p)}</option>`).join("")}</select></div>
           <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Role</div>
             <select class="inp" id="nu-role" onchange="setRoleDef(this.value)"><option value="employee">👤 Employee</option><option value="supervisor">🔷 Supervisor</option><option value="admin">👑 Admin</option></select></div>
-          <div><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Overall Target</div><input class="inp" id="nu-target" type="number" placeholder="50" value="50"/></div>
+          <div id="nu-target-wrap"><div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Overall Target</div><input class="inp" id="nu-target" type="number" placeholder="50" value="50"/></div>
         </div>
         <div style="margin-bottom:14px" id="nu-sup-access-wrap" style="display:none">
           <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Supervisor Access To (Ctrl+Click for multiple)</div>
@@ -746,8 +753,8 @@ async function renderTeam(){
           <td style="font-weight:800;color:#0a1628;font-family:monospace">${esc(u.empId)}</td>
           <td style="font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px;color:#0a1628" onclick="showEmpDetail('${esc(u.empId)}')">${esc(u.name)}</td>
           <td>${badge(u.role==="admin"?"👑 Admin":u.role==="supervisor"?"🔷 Supervisor":"👤 Employee",u.role==="admin"?"#ef4444":u.role==="supervisor"?"#2563eb":"#4f46e5")}</td>
-          <td style="color:#64748b;font-size:12px">${esc(u.process)}</td>
-          <td style="font-weight:700;color:#4f46e5">${u.overallTarget||50}</td>
+          <td style="color:#64748b;font-size:12px">${esc(procDisplay(u))}</td>
+          <td style="font-weight:700;color:#4f46e5">${u.role==="employee"?u.overallTarget||50:"—"}</td>
           <td style="color:#64748b;font-size:11px">${u.role==="supervisor"?(u.supervisorAccess||[]).join(", ")||"—":"—"}</td>
           <td>${badge(u.active!==false?"🟢 Active":"🔴 Disabled",u.active!==false?"#10b981":"#ef4444")}</td>
           <td><div style="display:flex;gap:5px;flex-wrap:wrap">
@@ -765,15 +772,17 @@ async function renderTeam(){
       const def=r==="admin"?ACCESSES:r==="supervisor"?["View Team Progress","Generate Email","Send Feedback","View Reports","View Own Progress"]:["Prod Report","View Own Progress","Hourly Tracker","Call Tracker"];
       document.querySelectorAll(".acc-cb").forEach(cb=>{cb.checked=def.includes(cb.value);const lbl=cb.closest("label");if(lbl){lbl.style.background=cb.checked?"#e0e7ff":"#f8fafc";lbl.style.borderColor=cb.checked?"#4f46e5":"#e2e8f0";lbl.style.color=cb.checked?"#4f46e5":"#64748b";}});
       const wrap=document.getElementById("nu-sup-access-wrap");if(wrap)wrap.style.display=r==="supervisor"?"block":"none";
+      const tw=document.getElementById("nu-target-wrap");if(tw)tw.style.display=r==="employee"?"":"none";
     };
     window._tmFP=v=>{filterProc=v;load();};window._tmSearch=v=>{searchQ=v;load();};
     window._addProc=async()=>{const v=document.getElementById("new-proc-input")?.value?.trim();if(!v)return;const procs=await getProcesses();if(!procs.includes(v)){procs.push(v);await S.set("rcm:processes",procs);}load();};
     window._delProc=async p=>{if(!confirm(`Remove process "${p}"?`))return;const procs=await getProcesses();await S.set("rcm:processes",procs.filter(x=>x!==p));load();};
     window._createUser=async()=>{
-      const empId=document.getElementById("nu-empid")?.value?.trim()?.toUpperCase();const name=document.getElementById("nu-name")?.value?.trim();const pass=document.getElementById("nu-pass")?.value?.trim();const process=document.getElementById("nu-proc")?.value;const role=document.getElementById("nu-role")?.value;const access=[...document.querySelectorAll(".acc-cb:checked")].map(c=>c.value);const overallTarget=parseInt(document.getElementById("nu-target")?.value)||50;
+      const empId=document.getElementById("nu-empid")?.value?.trim()?.toUpperCase();const name=document.getElementById("nu-name")?.value?.trim();const pass=document.getElementById("nu-pass")?.value?.trim();const procEl=document.getElementById("nu-proc");const process=[...procEl.selectedOptions].map(o=>o.value);const role=document.getElementById("nu-role")?.value;const access=[...document.querySelectorAll(".acc-cb:checked")].map(c=>c.value);const overallTarget=parseInt(document.getElementById("nu-target")?.value)||50;
       const supAccEl=document.getElementById("nu-supaccess");const supervisorAccess=supAccEl?[...supAccEl.selectedOptions].map(o=>o.value):["All"];
       const msg=document.getElementById("nu-msg");if(!empId||!name||!pass){if(msg){msg.textContent="⚠ All fields required.";msg.style.color="#ef4444";msg.style.display="block";}return;}const users=await S.get("rcm:users")||[];if(users.find(u=>u.empId.toLowerCase()===empId.toLowerCase())){if(msg){msg.textContent="⚠ Employee ID already exists.";msg.style.color="#ef4444";msg.style.display="block";}return;}
-      await S.set("rcm:users",[...users,{empId,name,password:pass,process,role,access,active:true,overallTarget,supervisorAccess}]);if(msg){msg.textContent="✅ User created!";msg.style.color="#10b981";msg.style.display="block";}setTimeout(()=>load(),1200);
+      const newUser={empId,name,password:pass,process,role,access,active:true,supervisorAccess};if(role==="employee")newUser.overallTarget=overallTarget;
+      await S.set("rcm:users",[...users,newUser]);if(msg){msg.textContent="✅ User created!";msg.style.color="#10b981";msg.style.display="block";}setTimeout(()=>load(),1200);
     };
     window._toggleU=async id=>{const users=await S.get("rcm:users")||[];await S.set("rcm:users",users.map(u=>u.empId===id?{...u,active:!u.active}:u));load();};
     window._approvePR=async(i,empId,requestedAt)=>{const el=document.getElementById("pr_"+i);if(!el?.value?.trim()){alert("Enter a new password.");return;}const users=await S.get("rcm:users")||[];await S.set("rcm:users",users.map(u=>u.empId===empId?{...u,password:el.value.trim()}:u));const all=await S.get("rcm:pwreset")||[];await S.set("rcm:pwreset",all.map(r=>r.empId===empId&&r.requestedAt===requestedAt?{...r,status:"resolved"}:r));alert("✅ Approved!");load();};
@@ -790,7 +799,9 @@ async function openEditUser(empId){
   document.getElementById("edit-pass").value="";
   document.getElementById("edit-target").value=u.overallTarget||50;
   document.getElementById("edit-role").value=u.role||"employee";
-  const procSel=document.getElementById("edit-process");procSel.innerHTML=`<option value="All">All Processes</option>${processes.map(p=>`<option value="${p}">${esc(p)}</option>`).join("")}`;procSel.value=u.process||"All";
+  const etw=document.getElementById("edit-target-wrap");if(etw)etw.style.display=(u.role||"employee")==="employee"?"":"none";
+  const procSel=document.getElementById("edit-process");procSel.innerHTML=`<option value="All">All Processes</option>${processes.map(p=>`<option value="${p}">${esc(p)}</option>`).join("")}`;
+  const uProcs=getProcs(u);[...procSel.options].forEach(o=>o.selected=uProcs.includes(o.value));
   const supSel=document.getElementById("edit-supaccess");supSel.innerHTML=`<option value="All">All Processes</option>${processes.map(p=>`<option value="${p}">${esc(p)}</option>`).join("")}`;[...supSel.options].forEach(o=>o.selected=(u.supervisorAccess||[]).includes(o.value));
   document.getElementById("edit-access-pills").innerHTML=ACCESSES.map(opt=>`<label style="display:flex;align-items:center;gap:6px;background:${(u.access||[]).includes(opt)?"#e0e7ff":"#f8fafc"};border:1.5px solid ${(u.access||[]).includes(opt)?"#4f46e5":"#e2e8f0"};border-radius:20px;padding:5px 13px;cursor:pointer;font-size:12px;font-weight:600;color:${(u.access||[]).includes(opt)?"#4f46e5":"#64748b"}"><input type="checkbox" value="${esc(opt)}" class="edit-acc-cb" ${(u.access||[]).includes(opt)?"checked":""} style="display:none"/> ${esc(opt)}</label>`).join("");
   document.querySelectorAll(".edit-acc-cb").forEach(cb=>{cb.addEventListener("change",function(){const lbl=this.closest("label");if(lbl){lbl.style.background=this.checked?"#e0e7ff":"#f8fafc";lbl.style.borderColor=this.checked?"#4f46e5":"#e2e8f0";lbl.style.color=this.checked?"#4f46e5":"#64748b";}});});
@@ -798,11 +809,13 @@ async function openEditUser(empId){
 }
 async function saveEditUser(){
   const origId=document.getElementById("edit-orig-id").value;
-  const name=document.getElementById("edit-name").value.trim();const pass=document.getElementById("edit-pass").value.trim();const process=document.getElementById("edit-process").value;const role=document.getElementById("edit-role").value;const access=[...document.querySelectorAll(".edit-acc-cb:checked")].map(c=>c.value);const overallTarget=parseInt(document.getElementById("edit-target").value)||50;
+  const name=document.getElementById("edit-name").value.trim();const pass=document.getElementById("edit-pass").value.trim();
+  const procSel=document.getElementById("edit-process");const process=[...procSel.selectedOptions].map(o=>o.value);
+  const role=document.getElementById("edit-role").value;const access=[...document.querySelectorAll(".edit-acc-cb:checked")].map(c=>c.value);const overallTarget=parseInt(document.getElementById("edit-target").value)||50;
   const supSel=document.getElementById("edit-supaccess");const supervisorAccess=[...supSel.selectedOptions].map(o=>o.value);
   const msg=document.getElementById("edit-msg");if(!name){msg.textContent="⚠ Name cannot be empty.";msg.style.color="#ef4444";msg.style.display="block";return;}
   const users=await S.get("rcm:users")||[];
-  await S.set("rcm:users",users.map(u=>{if(u.empId!==origId)return u;const nu={...u,name,process,role,access,overallTarget,supervisorAccess};if(pass)nu.password=pass;return nu;}));
+  await S.set("rcm:users",users.map(u=>{if(u.empId!==origId)return u;const nu={...u,name,process,role,access,supervisorAccess};if(role==="employee")nu.overallTarget=overallTarget;if(pass)nu.password=pass;return nu;}));
   msg.textContent="✅ User updated!";msg.style.color="#10b981";msg.style.display="block";
   setTimeout(()=>{closeModal("edit-modal");renderTeam();},1200);
 }
@@ -860,8 +873,8 @@ async function showEmpDetail(empId){
   const isAdmin=currentUser.role==="admin";
 
   // Build task breakdown table for last 7 days
-  const proc=u.process;const procKey=proc.includes("MCD")||proc.includes("Medicaid")?"MCD":proc.includes("MCR")||proc.includes("Medicare")?"MCR":"MCO";
-  const tasks=taskCfg[procKey]||[];
+  const tasks=getTasksForUser(u,taskCfg);
+  const uProcLabel=procDisplay(u);
 
   document.getElementById("emp-modal-title").textContent=u.name+" — Full Details";
   document.getElementById("emp-modal-content").innerHTML=`
@@ -870,7 +883,7 @@ async function showEmpDetail(empId){
       <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,${rc},${rc}88);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:white;flex-shrink:0;overflow:hidden;box-shadow:0 4px 12px ${rc}44">${u.picture?`<img src="${esc(u.picture)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`:u.name.charAt(0).toUpperCase()}</div>
       <div style="flex:1">
         <div style="font-size:20px;font-weight:900;color:#0a1628">${esc(u.name)}</div>
-        <div style="font-size:12px;color:#64748b;margin-top:3px">${esc(u.empId)} · ${esc(u.process)} · Target: ${u.overallTarget||50}/day</div>
+        <div style="font-size:12px;color:#64748b;margin-top:3px">${esc(u.empId)} · ${esc(uProcLabel)}${u.role==="employee"?" · Target: "+(u.overallTarget||50)+"/day":""}</div>
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${badge(u.role==="admin"?"👑 Admin":u.role==="supervisor"?"🔷 Supervisor":"👤 Employee",rc)} ${badge(u.active!==false?"🟢 Active":"🔴 Disabled",u.active!==false?"#10b981":"#ef4444")}</div>
       </div>
       ${isAdmin?`<button class="btn" onclick="openEditUser('${esc(u.empId)}')" style="background:#e0e7ff;color:#4f46e5;padding:7px 14px;font-size:12px;border-radius:9px">✏️ Edit</button>`:""}
@@ -884,7 +897,7 @@ async function showEmpDetail(empId){
 
     <!-- Task Breakdown -->
     <div style="margin-bottom:18px">
-      ${H2("Task Breakdown — Last 7 Days ("+procKey+")","📋")}
+      ${H2("Task Breakdown — Last 7 Days ("+uProcLabel+")","📋")}
       <div style="overflow-x:auto">
         <table style="font-size:12px">
           <thead><tr><th>Date</th><th>Prod%</th><th>Total</th><th>Adj.Target</th><th>DT</th>${tasks.map(t=>`<th style="white-space:nowrap">${esc(t.name)}</th>`).join("")}<th>Remark</th>${isAdmin?`<th>Del</th>`:""}</tr></thead>
@@ -932,7 +945,7 @@ async function openProfile(){
       <div style="font-size:12px;color:#94a3b8;margin-top:4px">${esc(currentUser.empId)} · ${badge(currentUser.role==="admin"?"👑 Admin":currentUser.role==="supervisor"?"🔷 Supervisor":"👤 Employee",rc)}</div>
     </div>
     <div style="display:flex;gap:10px;margin-bottom:20px">
-      ${kpi("Process",currentUser.process||"—","#4f46e5","","🏥")}${kpi("Team",teamSize+" Active","#10b981","Employees","👥")}${kpi("My Target",currentUser.overallTarget||50,"#f59e0b","Claims/day","🎯")}
+      ${kpi("Process",procDisplay(currentUser)||"—","#4f46e5","","🏥")}${kpi("Team",teamSize+" Active","#10b981","Employees","👥")}${currentUser.role==="employee"?kpi("My Target",currentUser.overallTarget||50,"#f59e0b","Claims/day","🎯"):""}
     </div>
     <div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">Update Name</div><input class="inp" id="profile-name" value="${esc(currentUser.name)}"/></div>
     <div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">Profile Picture URL</div><input class="inp" id="profile-pic-url" value="${esc(currentUser.picture||"")}" placeholder="Paste any image URL…"/></div>
@@ -990,15 +1003,15 @@ function loadEmpApp(){
 async function renderProdReport(){
   let selDate=today();
   const taskCfg=await getTaskConfig();
-  const proc=currentUser.process||"PMB MCO";
-  const procKey=proc.includes("MCD")||proc.includes("Medicaid")?"MCD":proc.includes("MCR")||proc.includes("Medicare")?"MCR":"MCO";
+  const procLabel=procDisplay(currentUser);
+  const tasks_all=getTasksForUser(currentUser,taskCfg);
 
   async function load(){
     const pr=await S.get(`rcm:prod:${currentUser.empId}:${selDate}`);
     const bypass=await S.get(`rcm:bypass:${currentUser.empId}:${selDate}`);
     const hourlyRec=await S.get(`rcm:hourly:${currentUser.empId}:${selDate}`)||{slots:{}};
     const callRec=await S.get(`rcm:calls:${currentUser.empId}:${selDate}`)||{};
-    const tasks=taskCfg[procKey]||[];
+    const tasks=tasks_all;
     const savedCounts=pr?.tasks||{};
     const savedDT=pr?.downtimeHours||0;
     const overallTarget=currentUser.overallTarget||50;
@@ -1018,7 +1031,7 @@ async function renderProdReport(){
           <div>
             <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px">Daily Productivity Report</div>
             <div style="font-size:22px;font-weight:900;color:white;letter-spacing:-0.5px">${esc(currentUser.name)}</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">${esc(currentUser.empId)} · ${esc(proc)} · Target: ${overallTarget} · Shift: 8h</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">${esc(currentUser.empId)} · ${esc(procLabel)} · Target: ${overallTarget} · Shift: 8h</div>
           </div>
           <input type="date" value="${selDate}" onchange="window._prDate(this.value)" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:9px;padding:8px 13px;color:white;font-size:13px;font-weight:700;cursor:pointer"/>
         </div>
@@ -1034,7 +1047,7 @@ async function renderProdReport(){
       <!-- ══ HOURLY TRACKER (above downtime) ══ -->
       <div class="card" style="margin-bottom:18px">
         ${H2("⏰ Hourly Tracker — "+fmtD(selDate),"⏰")}
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">Shift: <strong>5:30 PM → 2:30 AM</strong> · Select the task and enter your count at each hour end</div>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">Shift: <strong>6:30 PM → 2:30 AM</strong> · Select the task and enter your count at each hour end</div>
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
           ${HOURLY_SLOTS.map((slot,i)=>{const isNight=i>=6;const sv=slots[slot]||"";const st=hourlyRec[`task_${i}`]||"";return`<div class="h-cell ${isNight?"night":""}">
             <div style="font-size:10px;font-weight:700;color:${isNight?"#7c3aed":"#64748b"};text-transform:uppercase;letter-spacing:0.8px;margin-bottom:5px">${slot}</div>
@@ -1064,7 +1077,7 @@ async function renderProdReport(){
         </div>
 
         <!-- Task Table -->
-        ${H2("Task Entry — "+procKey,"📋")}
+        ${H2("Task Entry — "+procLabel,"📋")}
         <div style="overflow-x:auto">
           <table>
             <thead><tr><th>Task Name</th><th>Individual Target</th><th>Weight</th><th style="width:110px">Count</th><th>Contribution</th></tr></thead>
@@ -1115,10 +1128,7 @@ async function renderProdReport(){
           <div>
             <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Call Type</div>
             <select class="inp" id="ct-type">
-              <option value="AR Calling" ${callRec.callType==="AR Calling"?"selected":""}>AR Calling</option>
-              <option value="Insurance Calling" ${callRec.callType==="Insurance Calling"?"selected":""}>Insurance Calling</option>
-              <option value="Patient Calling" ${callRec.callType==="Patient Calling"?"selected":""}>Patient Calling</option>
-              <option value="Mixed" ${callRec.callType==="Mixed"?"selected":""}>Mixed</option>
+              <option value="Insurance Call">Insurance Call</option>
             </select>
           </div>
         </div>
@@ -1157,6 +1167,17 @@ async function renderProdReport(){
     window._htLive=()=>{
       const tots=HOURLY_SLOTS.map((_,i)=>parseInt(document.getElementById(`ht_${i}`)?.value)||0);
       HOURLY_SLOTS.forEach((_,i)=>{const el=document.getElementById(`htd_${i}`);if(!el)return;if(i>0&&tots[i]>0&&tots[i-1]>0){const d=tots[i]-tots[i-1];el.textContent=(d>=0?"+":"")+d;el.style.color=d>=0?"#10b981":"#ef4444";}else el.textContent="—";});
+      // Aggregate hourly counts per task and push to task entry table
+      const taskSums={};
+      HOURLY_SLOTS.forEach((_,i)=>{
+        const task=document.getElementById(`hts_${i}`)?.value;
+        const val=parseInt(document.getElementById(`ht_${i}`)?.value)||0;
+        if(task&&val>0)taskSums[task]=(taskSums[task]||0)+val;
+      });
+      if(Object.keys(taskSums).length>0){
+        tasksCopy.forEach((t,i)=>{if(taskSums[t.name]!==undefined){const inp=document.getElementById(`prt_${i}`);if(inp)inp.value=taskSums[t.name];}});
+        window._prLive();
+      }
     };
 
     window._prDate=v=>{selDate=v;load();};
@@ -1180,9 +1201,9 @@ async function renderProdReport(){
     window._savePR=async()=>{
       const dt=parseFloat(document.getElementById("pr-downtime")?.value)||0;const cnt={};tasks.forEach((t,i)=>{cnt[t.name]=parseFloat(document.getElementById(`prt_${i}`)?.value)||0;});
       const res=calcProd(tasks,cnt,overallTarget,dt);const remark=document.getElementById("pr-remark")?.value||"";const qualScore=document.getElementById("pr-quality")?.value||"";const notes=document.getElementById("pr-notes")?.value||"";
-      await S.set(`rcm:prod:${currentUser.empId}:${selDate}`,{tasks:cnt,downtimeHours:dt,process:procKey,...res,overallTarget,remark,qualScore,notes,submittedAt:new Date().toISOString()});
+      await S.set(`rcm:prod:${currentUser.empId}:${selDate}`,{tasks:cnt,downtimeHours:dt,process:procLabel,...res,overallTarget,remark,qualScore,notes,submittedAt:new Date().toISOString()});
       const day=await S.get(`rcm:day:${selDate}`)||{};
-      day[currentUser.empId]={empId:currentUser.empId,name:currentUser.name,process:currentUser.process,total:res.total.toFixed(1),target:overallTarget,prodPct:res.prodPct.toFixed(1),downtime:dt,qualScore,reason:remark,notes,submittedAt:new Date().toISOString()};
+      day[currentUser.empId]={empId:currentUser.empId,name:currentUser.name,process:procLabel,total:res.total.toFixed(1),target:overallTarget,prodPct:res.prodPct.toFixed(1),downtime:dt,qualScore,reason:remark,notes,submittedAt:new Date().toISOString()};
       await S.set(`rcm:day:${selDate}`,day);
       const msg=document.getElementById("pr-save-msg");if(msg){msg.textContent=`✅ Saved! Prod: ${res.prodPct.toFixed(1)}% ${res.deficit>0?"⚠ Deficit: "+res.deficit.toFixed(1):"✅ Target Met!"}`;msg.style.color=res.deficit>0?"#ef4444":"#10b981";msg.style.display="block";}
       if(res.prodPct<100&&!bypass)document.getElementById("deficit-header-alert").style.display="block";
